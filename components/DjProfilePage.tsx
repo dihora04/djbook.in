@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { DJProfile, View } from '../types';
-import { getDjBySlug } from '../services/mockApiService';
-import { StarIcon, VerifiedIcon, MapPinIcon, ChevronLeftIcon, LoaderIcon, MusicIcon, CalendarIcon, CheckCircleIcon } from './icons';
+import { DJProfile, View, DJCalendarEntry, CalendarStatus } from '../types';
+import { getDjBySlug, getPublicDjAvailability } from '../services/mockApiService';
+import { StarIcon, VerifiedIcon, MapPinIcon, ChevronLeftIcon, LoaderIcon, MusicIcon, CalendarIcon, CheckCircleIcon, RadioIcon } from './icons';
 
 interface DjProfilePageProps {
   slug: string;
@@ -13,21 +13,45 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
   const [dj, setDj] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [quoteRequested, setQuoteRequested] = useState(false);
+  const [availability, setAvailability] = useState<Set<string>>(new Set());
+  const [dateError, setDateError] = useState<string>('');
 
   useEffect(() => {
-    const fetchDj = async () => {
+    const fetchDjData = async () => {
       setLoading(true);
       const fetchedDj = await getDjBySlug(slug);
       if (fetchedDj) {
         setDj(fetchedDj);
+        const availabilityData = await getPublicDjAvailability(fetchedDj.id);
+        const unavailableDates = new Set<string>();
+        availabilityData.forEach(entry => {
+          if (entry.status !== CalendarStatus.AVAILABLE) {
+             // Store date as YYYY-MM-DD string for easy comparison
+            unavailableDates.add(new Date(entry.date).toISOString().split('T')[0]);
+          }
+        });
+        setAvailability(unavailableDates);
       }
       setLoading(false);
     };
-    fetchDj();
+    fetchDjData();
   }, [slug]);
+  
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedDate = e.target.value; // YYYY-MM-DD format
+    if (availability.has(selectedDate)) {
+        setDateError('This date is unavailable. Please choose another.');
+    } else {
+        setDateError('');
+    }
+  };
 
   const handleRequestQuote = (e: React.FormEvent) => {
     e.preventDefault();
+    if (dateError) {
+        alert("Please select an available date.");
+        return;
+    }
     setQuoteRequested(true);
   };
 
@@ -48,6 +72,8 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
     );
   }
 
+  const isLive = dj.liveStatus && new Date(dj.liveStatus.activeUntil) > new Date();
+
   return (
     <div className="bg-brand-dark text-white min-h-screen">
       {/* Cover Image */}
@@ -60,7 +86,13 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="relative -mt-24 md:-mt-32">
+        {isLive && (
+            <div className="bg-red-600/90 backdrop-blur-sm text-white font-bold p-4 rounded-lg flex items-center justify-center gap-3 mb-4 -mt-16 relative z-10 animate-pulse">
+                <RadioIcon className="w-6 h-6" />
+                <span>LIVE NOW at {dj.liveStatus.venueName}</span>
+            </div>
+        )}
+        <div className={`relative ${!isLive && "-mt-24 md:-mt-32"}`}>
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2">
@@ -169,7 +201,14 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                           <form className="space-y-4" onSubmit={handleRequestQuote}>
                             <div>
                               <label className="text-sm font-medium text-gray-300">Event Date</label>
-                              <input required type="date" className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" />
+                              <input 
+                                required 
+                                type="date"
+                                min={new Date().toISOString().split("T")[0]}
+                                onChange={handleDateChange}
+                                className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" 
+                               />
+                               {dateError && <p className="text-red-400 text-sm mt-1">{dateError}</p>}
                             </div>
                              <div>
                               <label className="text-sm font-medium text-gray-300">Event Type</label>
@@ -177,7 +216,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                                 {dj.eventTypes.map(e => <option key={e}>{e}</option>)}
                               </select>
                             </div>
-                            <button type="submit" className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300">
+                            <button type="submit" disabled={!!dateError} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
                               Request a Quote
                             </button>
                           </form>

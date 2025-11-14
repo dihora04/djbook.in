@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { View, User, Role } from './types';
 import Header from './components/Header';
@@ -12,6 +11,7 @@ import PricingPage from './components/PricingPage';
 import AuthModal from './components/auth/AuthModal';
 import { MOCK_USERS } from './constants';
 import { LoaderIcon } from './components/icons';
+import { Toast, ToastMessage } from './components/ui/Toast';
 
 
 const UserDashboardPage = () => (
@@ -31,6 +31,13 @@ function App() {
   const [view, setView] = useState<View>({ page: 'home' });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
 
   // In a real app, this would be a context provider
   const auth = {
@@ -66,7 +73,7 @@ function App() {
         return <PricingPage setView={setView} />;
       case 'dj-dashboard':
          if (currentUser?.role === Role.DJ && currentUser.djProfileId) {
-          return <DjDashboardPage djId={currentUser.djProfileId} setView={setView} />;
+          return <DjDashboardPage djId={currentUser.djProfileId} setView={setView} showToast={showToast} />;
         }
         // Redirect if not a DJ
         return <HomePage setView={setView} />;
@@ -97,6 +104,7 @@ function App() {
         onLogin={auth.login}
         users={MOCK_USERS}
       />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

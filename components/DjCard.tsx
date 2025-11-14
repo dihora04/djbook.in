@@ -9,6 +9,8 @@ interface DjCardProps {
 }
 
 const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
+  const isLive = dj.liveStatus && new Date(dj.liveStatus.activeUntil) > new Date();
+
   return (
     <div 
       className="bg-brand-surface rounded-xl overflow-hidden shadow-lg shadow-brand-violet/10 transform hover:-translate-y-2 transition-transform duration-300 cursor-pointer group"
@@ -16,11 +18,17 @@ const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
     >
       <div className="relative">
         <img className="w-full h-56 object-cover" src={dj.profileImage} alt={dj.name} />
-        <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-bold flex items-center gap-1">
+        {isLive && (
+            <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 animate-pulse">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+                LIVE NOW
+            </div>
+        )}
+        <div className={`absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-bold flex items-center gap-1 ${isLive ? 'mt-8' : ''}`}>
           <StarIcon className="w-4 h-4 text-yellow-400" />
           <span>{dj.avgRating.toFixed(1)}</span>
         </div>
-        {dj.verified && (
+        {dj.verified && !isLive && (
             <div className="absolute top-3 left-3" title="Verified DJ">
                 <VerifiedIcon className="w-6 h-6 text-brand-cyan" />
             </div>

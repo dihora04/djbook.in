@@ -136,3 +136,10 @@ export const ClockIcon = ({ className }: { className?: string }) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
 );
+
+export const RadioIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5a6 6 0 00-6-6v-1.5a6 6 0 00-6 6v1.5a6 6 0 006 6z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 14.362a9 9 0 01-1.397 1.397M5.638 5.638a9 9 0 011.397-1.397M14.362 5.638a9 9 0 011.397 1.397M5.638 14.362a9 9 0 01-1.397-1.397" />
+    </svg>
+);

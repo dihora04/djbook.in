@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { DJProfile, View } from '../types';
 import { getFeaturedDjs } from '../services/mockApiService';
 import DjCard from './DjCard';
 import { LoaderIcon } from './icons';
 import { renderCanvas } from './ui/canvas';
+import FindLiveDjs from './FindLiveDjs';
 
 interface HomePageProps {
   setView: (view: View) => void;
@@ -60,6 +62,10 @@ const HomePage: React.FC<HomePageProps> = ({ setView }) => {
                     </div>
                 </div>
             </section>
+            
+            {/* Find Live DJs Section */}
+            <FindLiveDjs setView={setView} />
+
 
             {/* Featured DJs */}
             <section className="py-20 bg-brand-dark">

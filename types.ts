@@ -75,6 +75,12 @@ export interface DJProfile {
   profileImage: string;
   coverImage: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  liveStatus?: {
+    venueName: string;
+    lat: number;
+    lng: number;
+    activeUntil: Date;
+  } | null;
 }
 
 export type View = {
@@ -82,12 +88,19 @@ export type View = {
   slug?: string | null;
 }
 
-export interface GoogleCalendarEvent {
+export enum CalendarStatus {
+  AVAILABLE = 'AVAILABLE',
+  BOOKED = 'BOOKED',
+  HOLD = 'HOLD',
+  UNAVAILABLE = 'UNAVAILABLE',
+}
+
+export interface DJCalendarEntry {
   id: string;
-  summary: string;
-  start: {
-    date: string; // 'YYYY-MM-DD' format
-  };
-  // 'confirmed' could mean booked, 'tentative' could mean on hold.
-  status: 'confirmed' | 'tentative' | 'cancelled'; 
+  djProfileId: string;
+  date: Date; // Store the full date object
+  status: CalendarStatus;
+  title?: string;      // e.g., "Wedding", "Day Off", "Platform Booking"
+  note?: string;       // Optional details for manual entries
+  bookingId?: string;  // Link to Booking if platform-initiated
 }
