@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { DJProfile, View } from '../types';
 import { getFeaturedDjs } from '../services/mockApiService';
 import DjCard from './DjCard';
 import { LoaderIcon } from './icons';
+import { renderCanvas } from './ui/canvas';
 
 interface HomePageProps {
   setView: (view: View) => void;
@@ -23,13 +23,18 @@ const HomePage: React.FC<HomePageProps> = ({ setView }) => {
         fetchDjs();
     }, []);
 
+    useEffect(() => {
+      renderCanvas();
+    }, []);
+
     return (
         <div className="pt-20">
             {/* Hero Section */}
             <section 
-              className="relative min-h-[60vh] md:min-h-[80vh] flex items-center justify-center text-center bg-cover bg-center"
+              className="relative min-h-[60vh] md:min-h-[80vh] flex items-center justify-center text-center bg-cover bg-center overflow-hidden"
               style={{backgroundImage: "url('https://picsum.photos/seed/partybg/1920/1080')"}}
             >
+                <canvas id="canvas" className="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
                 <div className="absolute inset-0 bg-brand-dark/70"></div>
                 <div className="relative z-10 px-4">
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter mb-4 text-white">

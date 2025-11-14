@@ -22,6 +22,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ setView }) => {
   useEffect(() => {
     const fetchDjs = async () => {
       setLoading(true);
+      // getDjs now only fetches approved DJs
       const djs = await getDjs();
       setAllDjs(djs);
       setFilteredDjs(djs);

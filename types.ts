@@ -5,6 +5,20 @@ export enum Role {
   CUSTOMER = 'CUSTOMER',
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  djProfileId?: string;
+}
+
+export enum SubscriptionTier {
+    FREE = 'FREE',
+    PRO = 'PRO',
+    ELITE = 'ELITE'
+}
+
 export enum BookingStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
@@ -14,6 +28,21 @@ export enum BookingStatus {
   CANCELLED = 'CANCELLED',
   REFUNDED = 'REFUNDED',
 }
+
+export interface Booking {
+    id: string;
+    djId: string;
+    djName: string;
+    djProfileImage: string;
+    customerId: string;
+    customerName: string;
+    eventDate: Date;
+    eventType: string;
+    location: string;
+    status: BookingStatus;
+    notes?: string;
+}
+
 
 export interface Review {
   id: string;
@@ -45,9 +74,10 @@ export interface DJProfile {
   reviews: Review[];
   profileImage: string;
   coverImage: string;
+  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export type View = {
-  page: 'home' | 'search' | 'profile';
+  page: 'home' | 'search' | 'profile' | 'pricing' | 'dj-dashboard' | 'admin-dashboard' | 'user-dashboard';
   slug?: string | null;
 }

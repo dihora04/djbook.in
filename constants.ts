@@ -1,15 +1,15 @@
 
-import { DJProfile } from './types';
+import { DJProfile, User, Role, Booking, BookingStatus } from './types';
 
 export const CITIES = ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Ahmedabad", "Pune", "Jaipur", "Goa"];
 export const GENRES = ["Bollywood", "EDM", "Punjabi", "Retro", "House", "Techno", "Hip-Hop"];
-export const EVENT_TYPES = ["Wedding", "Corporate", "Club", "College", "Private Party"];
+export const EVENT_TYPES = ["Wedding", "Corporate", "Club", "College", "Private Party", "Sangeet"];
 
 
 export const MOCK_DJS: DJProfile[] = [
   {
     id: 'dj-rohan-mumbai',
-    userId: 'user1',
+    userId: 'user-dj-rohan',
     name: 'DJ Rohan',
     slug: 'dj-rohan-mumbai',
     city: 'Mumbai',
@@ -32,6 +32,7 @@ export const MOCK_DJS: DJProfile[] = [
     avgRating: 4.9,
     profileImage: 'https://picsum.photos/seed/djrohan/400/400',
     coverImage: 'https://picsum.photos/seed/rohan_cover/1600/900',
+    approvalStatus: 'APPROVED',
     reviews: [
       { id: 'r1', authorName: 'Priya S.', authorImage: 'https://picsum.photos/seed/priya/100/100', rating: 5, comment: 'Absolutely amazing! Kept everyone dancing all night at our wedding.', createdAt: new Date('2023-11-15') },
       { id: 'r2', authorName: 'Amit K.', authorImage: 'https://picsum.photos/seed/amit/100/100', rating: 5, comment: 'Professional and played a fantastic set. Highly recommend!', createdAt: new Date('2023-10-20') },
@@ -60,6 +61,7 @@ export const MOCK_DJS: DJProfile[] = [
     avgRating: 4.8,
     profileImage: 'https://picsum.photos/seed/djneha/400/400',
     coverImage: 'https://picsum.photos/seed/neha_cover/1600/900',
+    approvalStatus: 'APPROVED',
     reviews: [
       { id: 'r3', authorName: 'Vikram R.', authorImage: 'https://picsum.photos/seed/vikram/100/100', rating: 5, comment: 'Incredible techno set for our company launch event. Pure class.', createdAt: new Date('2023-12-01') },
     ],
@@ -87,6 +89,7 @@ export const MOCK_DJS: DJProfile[] = [
     avgRating: 4.5,
     profileImage: 'https://picsum.photos/seed/djsunil/400/400',
     coverImage: 'https://picsum.photos/seed/sunil_cover/1600/900',
+    approvalStatus: 'PENDING',
     reviews: [
       { id: 'r4', authorName: 'Anjali P.', authorImage: 'https://picsum.photos/seed/anjali/100/100', rating: 4, comment: 'Good music selection for our college fest, but was a bit late.', createdAt: new Date('2023-09-10') },
     ],
@@ -113,13 +116,14 @@ export const MOCK_DJS: DJProfile[] = [
     avgRating: 4.7,
     profileImage: 'https://picsum.photos/seed/djriya/400/400',
     coverImage: 'https://picsum.photos/seed/riya_cover/1600/900',
+    approvalStatus: 'APPROVED',
     reviews: [
       { id: 'r5', authorName: 'Karan M.', authorImage: 'https://picsum.photos/seed/karan/100/100', rating: 5, comment: 'DJ Riya was the highlight of our sangeet. Everyone loved her energy!', createdAt: new Date('2023-11-25') },
     ],
   },
   {
     id: 'dj-arjun-goa',
-    userId: 'user5',
+    userId: 'user-dj-arjun',
     name: 'DJ Arjun',
     slug: 'dj-arjun-goa',
     city: 'Goa',
@@ -140,8 +144,65 @@ export const MOCK_DJS: DJProfile[] = [
     avgRating: 4.9,
     profileImage: 'https://picsum.photos/seed/djarjun/400/400',
     coverImage: 'https://picsum.photos/seed/arjun_cover/1600/900',
+    approvalStatus: 'REJECTED',
     reviews: [
       { id: 'r6', authorName: 'Chloe F.', authorImage: 'https://picsum.photos/seed/chloe/100/100', rating: 5, comment: 'Best sunset set I\'ve ever heard. Pure magic!', createdAt: new Date('2024-01-05') },
     ],
   },
+];
+
+export const MOCK_USERS: User[] = [
+    { id: 'user-admin', name: 'Admin', email: 'admin@djbook.in', role: Role.ADMIN },
+    { id: 'user-customer', name: 'Aarav Mehta', email: 'aarav@email.com', role: Role.CUSTOMER },
+    { id: 'user-dj-rohan', name: 'Rohan Sharma', email: 'rohan@email.com', role: Role.DJ, djProfileId: 'dj-rohan-mumbai' },
+];
+
+const TOMORROW = new Date();
+TOMORROW.setDate(TOMORROW.getDate() + 1);
+const NEXT_WEEK = new Date();
+NEXT_WEEK.setDate(NEXT_WEEK.getDate() + 7);
+const LAST_MONTH = new Date();
+LAST_MONTH.setMonth(LAST_MONTH.getMonth() - 1);
+
+
+export const MOCK_BOOKINGS: Booking[] = [
+    {
+        id: 'booking1',
+        djId: 'dj-rohan-mumbai',
+        djName: 'DJ Rohan',
+        djProfileImage: 'https://picsum.photos/seed/djrohan/400/400',
+        customerId: 'user-customer',
+        customerName: 'Aarav Mehta',
+        eventDate: TOMORROW,
+        eventType: 'Private Party',
+        location: 'Juhu, Mumbai',
+        status: BookingStatus.PENDING,
+        notes: 'Birthday party for 50 guests. Needs a good mix of Bollywood and international pop.'
+    },
+    {
+        id: 'booking2',
+        djId: 'dj-rohan-mumbai',
+        djName: 'DJ Rohan',
+        djProfileImage: 'https://picsum.photos/seed/djrohan/400/400',
+        customerId: 'user-customer-2',
+        customerName: 'Sneha Verma',
+        eventDate: NEXT_WEEK,
+        eventType: 'Wedding',
+        location: 'Taj Lands End, Mumbai',
+        status: BookingStatus.ACCEPTED,
+        notes: 'Sangeet ceremony. Focus on classic Bollywood and Punjabi hits.'
+    },
+     {
+        id: 'booking3',
+        djId: 'dj-rohan-mumbai',
+        djName: 'DJ Rohan',
+        djProfileImage: 'https://picsum.photos/seed/djrohan/400/400',
+        customerId: 'user-customer-3',
+        customerName: 'Ravi Kumar',
+        eventDate: LAST_MONTH,
+        eventType: 'Corporate',
+        location: 'BKC, Mumbai',
+        status: BookingStatus.COMPLETED,
+        notes: 'Annual company party. Played a great retro set.'
+    }
 ];
