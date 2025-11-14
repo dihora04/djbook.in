@@ -12,6 +12,7 @@ import AuthModal from './components/auth/AuthModal';
 import { MOCK_USERS } from './constants';
 import { LoaderIcon } from './components/icons';
 import { Toast, ToastMessage } from './components/ui/Toast';
+import CursorPianoEffect from './components/ui/CursorPianoEffect';
 
 
 const UserDashboardPage = () => (
@@ -94,6 +95,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-brand-dark font-sans">
+      <CursorPianoEffect />
       <Header setView={setView} auth={auth}/>
       <main>
         {renderContent()}
