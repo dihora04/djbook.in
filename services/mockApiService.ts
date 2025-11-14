@@ -1,6 +1,6 @@
 
-import { DJProfile, Booking, User } from '../types';
-import { MOCK_DJS, MOCK_BOOKINGS, MOCK_USERS } from '../constants';
+import { DJProfile, Booking, User, GoogleCalendarEvent } from '../types';
+import { MOCK_DJS, MOCK_BOOKINGS, MOCK_USERS, MOCK_GCAL_EVENTS } from '../constants';
 
 const ARTIFICIAL_DELAY = 500;
 
@@ -82,3 +82,14 @@ export const getBookingsByCustomerId = async (customerId: string): Promise<Booki
         }, ARTIFICIAL_DELAY);
     });
 };
+
+export const getGoogleCalendarEvents = async (djId: string): Promise<GoogleCalendarEvent[]> => {
+    console.log(`Simulating fetching Google Calendar events for DJ: ${djId}`);
+    // In a real app, you'd make an API call here.
+    // We'll return the mock data for any DJ for this simulation.
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve(MOCK_GCAL_EVENTS);
+        }, ARTIFICIAL_DELAY + 200); // slightly longer delay
+    });
+}

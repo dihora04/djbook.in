@@ -1,5 +1,5 @@
 
-import { DJProfile, User, Role, Booking, BookingStatus } from './types';
+import { DJProfile, User, Role, Booking, BookingStatus, GoogleCalendarEvent } from './types';
 
 export const CITIES = ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Ahmedabad", "Pune", "Jaipur", "Goa"];
 export const GENRES = ["Bollywood", "EDM", "Punjabi", "Retro", "House", "Techno", "Hip-Hop"];
@@ -163,6 +163,10 @@ const NEXT_WEEK = new Date();
 NEXT_WEEK.setDate(NEXT_WEEK.getDate() + 7);
 const LAST_MONTH = new Date();
 LAST_MONTH.setMonth(LAST_MONTH.getMonth() - 1);
+const IN_10_DAYS = new Date();
+IN_10_DAYS.setDate(IN_10_DAYS.getDate() + 10);
+const IN_15_DAYS = new Date();
+IN_15_DAYS.setDate(IN_15_DAYS.getDate() + 15);
 
 
 export const MOCK_BOOKINGS: Booking[] = [
@@ -204,5 +208,35 @@ export const MOCK_BOOKINGS: Booking[] = [
         location: 'BKC, Mumbai',
         status: BookingStatus.COMPLETED,
         notes: 'Annual company party. Played a great retro set.'
+    }
+];
+
+// Helper to format date to 'YYYY-MM-DD'
+const formatDate = (date: Date) => {
+    const d = new Date(date);
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+
+    if (month.length < 2) 
+        month = '0' + month;
+    if (day.length < 2) 
+        day = '0' + day;
+
+    return [year, month, day].join('-');
+}
+
+export const MOCK_GCAL_EVENTS: GoogleCalendarEvent[] = [
+    {
+        id: 'gcal1',
+        summary: 'Studio Session',
+        start: { date: formatDate(IN_10_DAYS) },
+        status: 'confirmed'
+    },
+    {
+        id: 'gcal2',
+        summary: 'Private Gig (Enquiry)',
+        start: { date: formatDate(IN_15_DAYS) },
+        status: 'tentative'
     }
 ];

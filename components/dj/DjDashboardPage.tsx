@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, DJProfile, Booking, BookingStatus } from '../../types';
 import { getDjById, getBookingsByDjId } from '../../services/mockApiService';
-import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../icons';
+import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon } from '../icons';
+import ProfileEditSection from './ProfileEditSection';
+import CalendarSection from './CalendarSection';
 
 interface DjDashboardPageProps {
   djId: string;
@@ -15,7 +17,7 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView }) => {
     const [dj, setDj] = useState<DJProfile | null>(null);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<Tab>('leads');
+    const [activeTab, setActiveTab] = useState<Tab>('profile');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -44,11 +46,11 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView }) => {
             case 'leads':
                 return <LeadsSection bookings={bookings} />;
             case 'calendar':
-                return <CalendarSection bookings={bookings} />;
+                return <CalendarSection bookings={bookings} djId={djId} />;
             case 'analytics':
                  return <AnalyticsSection />;
             case 'profile':
-                return <p>Profile editing form would be here.</p>;
+                return <ProfileEditSection dj={dj} setDj={setDj} />;
             default:
                 return null;
         }
@@ -129,21 +131,6 @@ const LeadsSection = ({ bookings }: { bookings: Booking[] }) => {
         </div>
     );
 };
-
-const CalendarSection = ({ bookings }: { bookings: Booking[] }) => (
-    <div>
-        <h2 className="text-2xl font-bold mb-6">Booking Calendar</h2>
-        <p className="text-gray-400">A full calendar view (like Google Calendar) would be displayed here, showing your available and booked dates.</p>
-        <div className="mt-4 border border-gray-700 rounded-lg p-4">
-            <h3 className="font-semibold text-brand-cyan">Upcoming Booked Dates:</h3>
-            <ul className="list-disc list-inside mt-2 text-gray-300">
-                {bookings.filter(b => b.status === BookingStatus.ACCEPTED).map(b => (
-                    <li key={b.id}>{b.eventDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} - {b.eventType}</li>
-                ))}
-            </ul>
-        </div>
-    </div>
-);
 
 const AnalyticsSection = () => {
     const StatCard = ({ value, label, icon }: { value: string, label: string, icon: React.ReactNode }) => (

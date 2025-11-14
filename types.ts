@@ -81,3 +81,13 @@ export type View = {
   page: 'home' | 'search' | 'profile' | 'pricing' | 'dj-dashboard' | 'admin-dashboard' | 'user-dashboard';
   slug?: string | null;
 }
+
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  start: {
+    date: string; // 'YYYY-MM-DD' format
+  };
+  // 'confirmed' could mean booked, 'tentative' could mean on hold.
+  status: 'confirmed' | 'tentative' | 'cancelled'; 
+}
