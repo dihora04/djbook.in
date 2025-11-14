@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { CheckCircleIcon, XCircleIcon } from '../icons';
 
@@ -7,7 +8,6 @@ export interface ToastMessage {
 }
 
 interface ToastProps extends ToastMessage {
-  // FIX: Corrected the function type syntax from 'from' to '=>'.
   onClose: () => void;
 }
 

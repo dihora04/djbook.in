@@ -75,12 +75,6 @@ export interface DJProfile {
   profileImage: string;
   coverImage: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
-  liveStatus?: {
-    venueName: string;
-    lat: number;
-    lng: number;
-    activeUntil: Date;
-  } | null;
 }
 
 export type View = {

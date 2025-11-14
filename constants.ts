@@ -6,7 +6,7 @@ export const GENRES = ["Bollywood", "EDM", "Punjabi", "Retro", "House", "Techno"
 export const EVENT_TYPES = ["Wedding", "Corporate", "Club", "College", "Private Party", "Sangeet"];
 
 
-export let MOCK_DJS: DJProfile[] = [
+export const MOCK_DJS: DJProfile[] = [
   {
     id: 'dj-rohan-mumbai',
     userId: 'user-dj-rohan',
@@ -37,12 +37,6 @@ export let MOCK_DJS: DJProfile[] = [
       { id: 'r1', authorName: 'Priya S.', authorImage: 'https://picsum.photos/seed/priya/100/100', rating: 5, comment: 'Absolutely amazing! Kept everyone dancing all night at our wedding.', createdAt: new Date('2023-11-15') },
       { id: 'r2', authorName: 'Amit K.', authorImage: 'https://picsum.photos/seed/amit/100/100', rating: 5, comment: 'Professional and played a fantastic set. Highly recommend!', createdAt: new Date('2023-10-20') },
     ],
-    liveStatus: {
-        venueName: 'AER Lounge, Four Seasons',
-        lat: 18.9953,
-        lng: 72.8208,
-        activeUntil: new Date(Date.now() + 2 * 60 * 60 * 1000) // Active for 2 hours from now
-    }
   },
   {
     id: 'dj-neha-delhi',
@@ -71,7 +65,6 @@ export let MOCK_DJS: DJProfile[] = [
     reviews: [
       { id: 'r3', authorName: 'Vikram R.', authorImage: 'https://picsum.photos/seed/vikram/100/100', rating: 5, comment: 'Incredible techno set for our company launch event. Pure class.', createdAt: new Date('2023-12-01') },
     ],
-    liveStatus: null,
   },
   {
     id: 'dj-sunil-bangalore',
@@ -100,7 +93,6 @@ export let MOCK_DJS: DJProfile[] = [
     reviews: [
       { id: 'r4', authorName: 'Anjali P.', authorImage: 'https://picsum.photos/seed/anjali/100/100', rating: 4, comment: 'Good music selection for our college fest, but was a bit late.', createdAt: new Date('2023-09-10') },
     ],
-    liveStatus: null,
   },
     {
     id: 'dj-riya-pune',
@@ -128,7 +120,6 @@ export let MOCK_DJS: DJProfile[] = [
     reviews: [
       { id: 'r5', authorName: 'Karan M.', authorImage: 'https://picsum.photos/seed/karan/100/100', rating: 5, comment: 'DJ Riya was the highlight of our sangeet. Everyone loved her energy!', createdAt: new Date('2023-11-25') },
     ],
-    liveStatus: null,
   },
   {
     id: 'dj-arjun-goa',
@@ -157,7 +148,6 @@ export let MOCK_DJS: DJProfile[] = [
     reviews: [
       { id: 'r6', authorName: 'Chloe F.', authorImage: 'https://picsum.photos/seed/chloe/100/100', rating: 5, comment: 'Best sunset set I\'ve ever heard. Pure magic!', createdAt: new Date('2024-01-05') },
     ],
-    liveStatus: null,
   },
 ];
 

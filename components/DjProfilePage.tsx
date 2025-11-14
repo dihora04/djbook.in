@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { DJProfile, View, DJCalendarEntry, CalendarStatus } from '../types';
 import { getDjBySlug, getPublicDjAvailability } from '../services/mockApiService';
-import { StarIcon, VerifiedIcon, MapPinIcon, ChevronLeftIcon, LoaderIcon, MusicIcon, CalendarIcon, CheckCircleIcon, RadioIcon } from './icons';
+import { StarIcon, VerifiedIcon, MapPinIcon, ChevronLeftIcon, LoaderIcon, MusicIcon, CalendarIcon, CheckCircleIcon } from './icons';
 
 interface DjProfilePageProps {
   slug: string;
@@ -72,8 +72,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
     );
   }
 
-  const isLive = dj.liveStatus && new Date(dj.liveStatus.activeUntil) > new Date();
-
   return (
     <div className="bg-brand-dark text-white min-h-screen">
       {/* Cover Image */}
@@ -86,13 +84,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        {isLive && (
-            <div className="bg-red-600/90 backdrop-blur-sm text-white font-bold p-4 rounded-lg flex items-center justify-center gap-3 mb-4 -mt-16 relative z-10 animate-pulse">
-                <RadioIcon className="w-6 h-6" />
-                <span>LIVE NOW at {dj.liveStatus.venueName}</span>
-            </div>
-        )}
-        <div className={`relative ${!isLive && "-mt-24 md:-mt-32"}`}>
+        <div className="relative -mt-24 md:-mt-32">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2">

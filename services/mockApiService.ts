@@ -1,11 +1,9 @@
-
 import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus } from '../types';
 import { MOCK_DJS, MOCK_BOOKINGS, MOCK_USERS, MOCK_CALENDAR_ENTRIES } from '../constants';
 
 const ARTIFICIAL_DELAY = 500;
 
 // This is a mutable store for the sake of the demo. In a real app, this would be a database.
-let djsStore = [...MOCK_DJS];
 let calendarEntriesStore = [...MOCK_CALENDAR_ENTRIES];
 let bookingsStore = [...MOCK_BOOKINGS];
 
@@ -14,7 +12,7 @@ export const getDjs = async (): Promise<DJProfile[]> => {
   console.log('Fetching all approved DJs...');
   return new Promise(resolve => {
     setTimeout(() => {
-      resolve(djsStore.filter(dj => dj.approvalStatus === 'APPROVED'));
+      resolve(MOCK_DJS.filter(dj => dj.approvalStatus === 'APPROVED'));
     }, ARTIFICIAL_DELAY);
   });
 };
@@ -23,7 +21,7 @@ export const getAllDjsForAdmin = async (): Promise<DJProfile[]> => {
   console.log('Fetching all DJs for admin...');
   return new Promise(resolve => {
     setTimeout(() => {
-      resolve(djsStore);
+      resolve(MOCK_DJS);
     }, ARTIFICIAL_DELAY);
   });
 };
@@ -33,7 +31,7 @@ export const getFeaturedDjs = async (): Promise<DJProfile[]> => {
     console.log('Fetching featured DJs...');
     return new Promise(resolve => {
       setTimeout(() => {
-        resolve(djsStore.filter(dj => dj.featured && dj.approvalStatus === 'APPROVED'));
+        resolve(MOCK_DJS.filter(dj => dj.featured && dj.approvalStatus === 'APPROVED'));
       }, ARTIFICIAL_DELAY);
     });
 };
@@ -42,7 +40,7 @@ export const getDjBySlug = async (slug: string): Promise<DJProfile | undefined> 
   console.log(`Fetching DJ with slug: ${slug}`);
   return new Promise(resolve => {
     setTimeout(() => {
-      const dj = djsStore.find(dj => dj.slug === slug);
+      const dj = MOCK_DJS.find(dj => dj.slug === slug);
       resolve(dj);
     }, ARTIFICIAL_DELAY);
   });
@@ -52,7 +50,7 @@ export const getDjById = async (id: string): Promise<DJProfile | undefined> => {
   console.log(`Fetching DJ with id: ${id}`);
   return new Promise(resolve => {
     setTimeout(() => {
-      const dj = djsStore.find(dj => dj.id === id);
+      const dj = MOCK_DJS.find(dj => dj.id === id);
       resolve(dj);
     }, ARTIFICIAL_DELAY);
   });
@@ -81,7 +79,7 @@ export const getBookingsByCustomerId = async (customerId: string): Promise<Booki
     return new Promise(resolve => {
         setTimeout(() => {
             const bookings = bookingsStore.filter(booking => booking.customerId === customerId).map(b => {
-                const dj = djsStore.find(d => d.id === b.djId);
+                const dj = MOCK_DJS.find(d => d.id === b.djId);
                 return {...b, djName: dj?.name || 'Unknown DJ', djProfileImage: dj?.profileImage || ''};
             });
             resolve(bookings);
@@ -218,48 +216,6 @@ export const rejectBooking = async (bookingId: string, djId: string): Promise<Bo
             
             console.log("Updated Calendar:", calendarEntriesStore);
             resolve(updatedBooking);
-        }, ARTIFICIAL_DELAY);
-    });
-};
-
-export const getLiveDjs = async (): Promise<DJProfile[]> => {
-    console.log('Fetching live DJs...');
-    return new Promise(resolve => {
-        setTimeout(() => {
-            const now = new Date();
-            resolve(djsStore.filter(dj => 
-                dj.approvalStatus === 'APPROVED' &&
-                dj.liveStatus &&
-                dj.liveStatus.activeUntil > now
-            ));
-        }, ARTIFICIAL_DELAY);
-    });
-};
-
-export const setDjLiveStatus = async (djId: string, status: DJProfile['liveStatus']): Promise<DJProfile> => {
-    console.log(`Setting live status for DJ ${djId}`);
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const djIndex = djsStore.findIndex(dj => dj.id === djId);
-            if (djIndex === -1) {
-                return reject(new Error('DJ not found'));
-            }
-            djsStore[djIndex].liveStatus = status;
-            resolve(djsStore[djIndex]);
-        }, ARTIFICIAL_DELAY);
-    });
-};
-
-export const stopDjLiveStatus = async (djId: string): Promise<DJProfile> => {
-    console.log(`Stopping live status for DJ ${djId}`);
-     return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const djIndex = djsStore.findIndex(dj => dj.id === djId);
-            if (djIndex === -1) {
-                return reject(new Error('DJ not found'));
-            }
-            djsStore[djIndex].liveStatus = null;
-            resolve(djsStore[djIndex]);
         }, ARTIFICIAL_DELAY);
     });
 };

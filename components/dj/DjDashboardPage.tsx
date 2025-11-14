@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, DJProfile, Booking, BookingStatus } from '../../types';
 import { getDjById, getBookingsByDjId, acceptBooking, rejectBooking } from '../../services/mockApiService';
-import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon, RadioIcon } from '../icons';
+import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon } from '../icons';
 import ProfileEditSection from './ProfileEditSection';
 import CalendarSection from './CalendarSection';
-import GoLiveSection from './GoLiveSection';
 
 interface DjDashboardPageProps {
   djId: string;
@@ -13,7 +11,7 @@ interface DjDashboardPageProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
-type Tab = 'profile' | 'calendar' | 'leads' | 'analytics' | 'live';
+type Tab = 'profile' | 'calendar' | 'leads' | 'analytics';
 
 const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showToast }) => {
     const [dj, setDj] = useState<DJProfile | null>(null);
@@ -41,10 +39,6 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
         );
     };
 
-    const updateDjProfile = (updatedDj: DJProfile) => {
-        setDj(updatedDj);
-    }
-
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center bg-brand-dark"><LoaderIcon className="w-16 h-16 text-brand-cyan" /></div>;
@@ -64,8 +58,6 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
                  return <AnalyticsSection />;
             case 'profile':
                 return <ProfileEditSection dj={dj} setDj={setDj} />;
-            case 'live':
-                return <GoLiveSection dj={dj} onUpdateProfile={updateDjProfile} showToast={showToast} />;
             default:
                 return null;
         }
@@ -95,7 +87,6 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
                             <TabButton tab="calendar" icon={<CalendarIcon className="w-5 h-5" />} label="Calendar" />
                             <TabButton tab="analytics" icon={<AnalyticsIcon className="w-5 h-5" />} label="Analytics" />
                             <TabButton tab="profile" icon={<UserIcon className="w-5 h-5" />} label="Edit Profile" />
-                             <TabButton tab="live" icon={<RadioIcon className="w-5 h-5" />} label="Go Live" />
                         </div>
                     </aside>
                     <main className="lg:col-span-3 bg-brand-surface p-6 rounded-xl min-h-[60vh]">
