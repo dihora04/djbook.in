@@ -1,37 +1,124 @@
 
-import React from 'react';
-import { User } from '../../types';
+import React, { useState } from 'react';
+import { Role } from '../../types';
+import { LoaderIcon } from '../icons';
 
 interface AuthModalProps {
     closeModal: () => void;
-    onLogin: (user: User) => void;
-    users: User[];
+    onLogin: (email: string, pass: string) => Promise<any>;
+    onRegister: (name: string, email: string, pass: string, role: Role) => Promise<any>;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, users }) => {
+type AuthTab = 'login' | 'register';
+
+const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister }) => {
+    const [activeTab, setActiveTab] = useState<AuthTab>('login');
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // Login State
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+
+    // Register State
+    const [regName, setRegName] = useState('');
+    const [regEmail, setRegEmail] = useState('');
+    const [regPassword, setRegPassword] = useState('');
+    const [regRole, setRegRole] = useState<Role>(Role.CUSTOMER);
+
+    const handleLoginSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+            await onLogin(loginEmail, loginPassword);
+        } catch (error) {
+            // Error toast is handled in App.tsx
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRegisterSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (regPassword.length < 6) {
+            alert('Password must be at least 6 characters long.');
+            return;
+        }
+        setIsLoading(true);
+        try {
+            await onRegister(regName, regEmail, regPassword, regRole);
+        } catch (error) {
+           // Error toast is handled in App.tsx
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div 
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center"
             onClick={closeModal}
         >
             <div 
-                className="bg-brand-surface rounded-xl shadow-2xl shadow-brand-violet/20 p-8 w-full max-w-md text-center"
+                className="bg-brand-surface rounded-xl shadow-2xl shadow-brand-violet/20 p-8 w-full max-w-md"
                 onClick={(e) => e.stopPropagation()}
             >
-                <h2 className="text-3xl font-bold mb-2">Login As</h2>
-                <p className="text-gray-400 mb-8">Select a role to explore the platform.</p>
-                <div className="space-y-4">
-                    {users.map(user => (
-                        <button
-                            key={user.id}
-                            onClick={() => onLogin(user)}
-                            className="w-full text-left p-4 bg-brand-dark hover:bg-gray-800 rounded-lg transition-colors duration-200"
-                        >
-                            <p className="font-bold text-white text-lg">{user.name}</p>
-                            <p className="text-sm text-brand-cyan">{user.role}</p>
-                        </button>
-                    ))}
+                <div className="flex border-b border-gray-700 mb-6">
+                    <button 
+                        onClick={() => setActiveTab('login')}
+                        className={`py-3 px-6 font-semibold transition-colors ${activeTab === 'login' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}
+                    >
+                        Login
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('register')}
+                        className={`py-3 px-6 font-semibold transition-colors ${activeTab === 'register' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}
+                    >
+                        Register
+                    </button>
                 </div>
+
+                {activeTab === 'login' ? (
+                    <form onSubmit={handleLoginSubmit} className="space-y-4">
+                        <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
+                        <div>
+                            <label className="text-sm font-medium text-gray-300">Email</label>
+                            <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-300">Password</label>
+                            <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" />
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 flex justify-center">
+                            {isLoading ? <LoaderIcon className="w-6 h-6" /> : 'Login'}
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                        <h2 className="text-2xl font-bold text-white">Create Your Account</h2>
+                        <div>
+                            <label className="text-sm font-medium text-gray-300">Full Name</label>
+                            <input type="text" value={regName} onChange={e => setRegName(e.target.value)} required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-300">Email</label>
+                            <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-300">Password</label>
+                            <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-300 mb-2 block">I am a...</label>
+                            <div className="flex gap-4">
+                               <button type="button" onClick={() => setRegRole(Role.CUSTOMER)} className={`flex-1 p-3 rounded-lg border-2 ${regRole === Role.CUSTOMER ? 'border-brand-cyan bg-brand-cyan/10' : 'border-gray-600'}`}>Customer</button>
+                               <button type="button" onClick={() => setRegRole(Role.DJ)} className={`flex-1 p-3 rounded-lg border-2 ${regRole === Role.DJ ? 'border-brand-cyan bg-brand-cyan/10' : 'border-gray-600'}`}>DJ</button>
+                            </div>
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 flex justify-center">
+                            {isLoading ? <LoaderIcon className="w-6 h-6" /> : 'Register'}
+                        </button>
+                    </form>
+                )}
             </div>
         </div>
     );

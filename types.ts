@@ -9,6 +9,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string; // Added for registration/login simulation
   role: Role;
   djProfileId?: string;
 }
@@ -36,6 +37,8 @@ export interface Booking {
     djProfileImage: string;
     customerId: string;
     customerName: string;
+    customerEmail?: string;
+    customerPhone?: string;
     eventDate: Date;
     eventType: string;
     location: string;
@@ -63,11 +66,12 @@ export interface DJProfile {
   eventTypes: string[];
   minFee: number;
   bio: string;
+  phone?: string;
   instagram?: string;
   youtube?: string;
   soundcloud?: string;
   gallery: string[];
-  videos: string[];
+  videos: string[]; // URLs for embedded videos
   verified: boolean;
   featured: boolean;
   avgRating: number;
@@ -75,6 +79,7 @@ export interface DJProfile {
   profileImage: string;
   coverImage: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  plan: SubscriptionTier;
 }
 
 export type View = {

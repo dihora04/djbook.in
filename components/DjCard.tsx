@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { DJProfile, View } from '../types';
+import { DJProfile, View, SubscriptionTier } from '../types';
 import { StarIcon, VerifiedIcon, MapPinIcon } from './icons';
 
 interface DjCardProps {
@@ -9,6 +9,8 @@ interface DjCardProps {
 }
 
 const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
+  const isVerified = dj.plan === SubscriptionTier.PRO || dj.plan === SubscriptionTier.ELITE;
+
   return (
     <div 
       className="bg-brand-surface rounded-xl overflow-hidden shadow-lg shadow-brand-violet/10 transform hover:-translate-y-2 transition-transform duration-300 cursor-pointer group"
@@ -20,7 +22,7 @@ const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
           <StarIcon className="w-4 h-4 text-yellow-400" />
           <span>{dj.avgRating.toFixed(1)}</span>
         </div>
-        {dj.verified && (
+        {isVerified && (
             <div className="absolute top-3 left-3" title="Verified DJ">
                 <VerifiedIcon className="w-6 h-6 text-brand-cyan" />
             </div>

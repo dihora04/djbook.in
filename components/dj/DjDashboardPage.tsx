@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
-import { View, DJProfile, Booking, BookingStatus } from '../../types';
-import { getDjById, getBookingsByDjId, acceptBooking, rejectBooking } from '../../services/mockApiService';
-import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon } from '../icons';
+import { View, DJProfile, Booking, BookingStatus, SubscriptionTier } from '../../types';
+import { getDjById, getBookingsByDjId, acceptBooking, rejectBooking, upgradeSubscription } from '../../services/mockApiService';
+import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon, CheckCircleIcon } from '../icons';
 import ProfileEditSection from './ProfileEditSection';
 import CalendarSection from './CalendarSection';
+// FIX: Import SubscriptionSection to resolve reference error.
+import SubscriptionSection from './SubscriptionSection';
 
 interface DjDashboardPageProps {
   djId: string;
@@ -11,7 +14,7 @@ interface DjDashboardPageProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
-type Tab = 'profile' | 'calendar' | 'leads' | 'analytics';
+type Tab = 'profile' | 'calendar' | 'leads' | 'analytics' | 'subscription';
 
 const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showToast }) => {
     const [dj, setDj] = useState<DJProfile | null>(null);
@@ -19,17 +22,18 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<Tab>('leads');
 
+    const fetchData = async () => {
+        setLoading(true);
+        const [djData, bookingsData] = await Promise.all([
+            getDjById(djId),
+            getBookingsByDjId(djId)
+        ]);
+        setDj(djData || null);
+        setBookings(bookingsData);
+        setLoading(false);
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const [djData, bookingsData] = await Promise.all([
-                getDjById(djId),
-                getBookingsByDjId(djId)
-            ]);
-            setDj(djData || null);
-            setBookings(bookingsData);
-            setLoading(false);
-        };
         fetchData();
     }, [djId]);
 
@@ -37,8 +41,9 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
         setBookings(currentBookings => 
             currentBookings.map(b => b.id === updatedBooking.id ? updatedBooking : b)
         );
+        // also refetch dj data in case calendar needs update
+        fetchData();
     };
-
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center bg-brand-dark"><LoaderIcon className="w-16 h-16 text-brand-cyan" /></div>;
@@ -57,7 +62,9 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
             case 'analytics':
                  return <AnalyticsSection />;
             case 'profile':
-                return <ProfileEditSection dj={dj} setDj={setDj} />;
+                return <ProfileEditSection dj={dj} setDj={setDj} showToast={showToast} />;
+             case 'subscription':
+                return <SubscriptionSection dj={dj} onPlanChange={setDj} showToast={showToast} />;
             default:
                 return null;
         }
@@ -87,6 +94,7 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
                             <TabButton tab="calendar" icon={<CalendarIcon className="w-5 h-5" />} label="Calendar" />
                             <TabButton tab="analytics" icon={<AnalyticsIcon className="w-5 h-5" />} label="Analytics" />
                             <TabButton tab="profile" icon={<UserIcon className="w-5 h-5" />} label="Edit Profile" />
+                             <TabButton tab="subscription" icon={<StarIcon className="w-5 h-5" />} label="Subscription" />
                         </div>
                     </aside>
                     <main className="lg:col-span-3 bg-brand-surface p-6 rounded-xl min-h-[60vh]">
@@ -119,7 +127,7 @@ const LeadsSection: React.FC<LeadsSectionProps> = ({ djId, initialBookings, onBo
         setLoadingAction(bookingId);
         try {
             const updatedBooking = await acceptBooking(bookingId, djId);
-            setBookings(prev => prev.map(b => b.id === bookingId ? updatedBooking : b));
+            onBookingUpdate(updatedBooking);
             showToast('Booking accepted and calendar updated!', 'success');
         } catch (error) {
             console.error('Failed to accept booking:', error);
@@ -133,7 +141,7 @@ const LeadsSection: React.FC<LeadsSectionProps> = ({ djId, initialBookings, onBo
         setLoadingAction(bookingId);
         try {
             const updatedBooking = await rejectBooking(bookingId, djId);
-            setBookings(prev => prev.map(b => b.id === bookingId ? updatedBooking : b));
+            onBookingUpdate(updatedBooking);
             showToast('Booking rejected.', 'success');
         } catch (error) {
             console.error('Failed to reject booking:', error);
@@ -143,7 +151,7 @@ const LeadsSection: React.FC<LeadsSectionProps> = ({ djId, initialBookings, onBo
         }
     };
 
-    const statusStyles = {
+    const statusStyles: { [key in BookingStatus]: string } = {
         [BookingStatus.PENDING]: 'bg-yellow-500/20 text-yellow-400',
         [BookingStatus.ACCEPTED]: 'bg-green-500/20 text-green-400',
         [BookingStatus.COMPLETED]: 'bg-blue-500/20 text-blue-400',

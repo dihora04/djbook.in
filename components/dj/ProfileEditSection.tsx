@@ -1,122 +1,120 @@
+
 import React, { useState } from 'react';
 import { DJProfile } from '../../types';
 import { LoaderIcon, CheckCircleIcon } from '../icons';
+import { CITIES, GENRES, EVENT_TYPES } from '../../constants';
+import { updateDjProfile } from '../../services/mockApiService';
+
 
 interface ProfileEditSectionProps {
     dj: DJProfile;
     setDj: React.Dispatch<React.SetStateAction<DJProfile | null>>;
+    showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
-// Simulate uploading to a service like Cloudinary
-const simulateCloudinaryUpload = (file: File): Promise<{ secure_url: string }> => {
-    console.log(`Simulating upload for ${file.name}...`);
-    return new Promise(resolve => {
-        setTimeout(() => {
-            // In a real app, this would be the URL from Cloudinary.
-            // Here, we generate a random image from picsum to show a change.
-            const newImageUrl = `https://picsum.photos/seed/${Date.now()}/400/400`;
-            console.log(`Simulated upload complete. New URL: ${newImageUrl}`);
-            resolve({ secure_url: newImageUrl });
-        }, 1500); // 1.5 second delay to simulate upload
-    });
-};
-
-
-const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj }) => {
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadSuccess, setUploadSuccess] = useState(false);
-
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            setUploadSuccess(false);
-            setSelectedFile(file);
-            // Create a preview URL
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
+const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, showToast }) => {
+    const [formData, setFormData] = useState<Partial<DJProfile>>(dj);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: name === 'minFee' ? parseInt(value) : value }));
     };
 
-    const handleUpload = async () => {
-        if (!selectedFile) return;
+    const handleMultiSelectChange = (field: 'genres' | 'eventTypes', value: string) => {
+        const currentValues = formData[field] || [];
+        const newValues = currentValues.includes(value)
+            ? currentValues.filter(item => item !== value)
+            : [...currentValues, value];
+        setFormData(prev => ({ ...prev, [field]: newValues }));
+    };
 
-        setIsUploading(true);
-        setUploadSuccess(false);
-
+    const handleSave = async () => {
+        setIsSaving(true);
         try {
-            const uploadResult = await simulateCloudinaryUpload(selectedFile);
-            const newImageUrl = uploadResult.secure_url;
-
-            // Update the parent component's state
-            setDj(prevDj => prevDj ? { ...prevDj, profileImage: newImageUrl } : null);
-
-            setUploadSuccess(true);
-            setSelectedFile(null);
-            setPreviewUrl(null);
+            const updatedProfile = await updateDjProfile(dj.id, formData);
+            setDj(updatedProfile);
+            showToast('Profile updated successfully!', 'success');
         } catch (error) {
-            console.error("Upload failed:", error);
-            // Handle error state if needed
+            showToast('Failed to update profile.', 'error');
         } finally {
-            setIsUploading(false);
+            setIsSaving(false);
         }
     };
 
+    const InputField = ({ label, name, value, onChange, placeholder, type = "text" }: any) => (
+        <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{label}</label>
+            <input 
+                type={type} 
+                name={name} 
+                value={value || ''} 
+                onChange={onChange} 
+                placeholder={placeholder}
+                className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none"
+            />
+        </div>
+    );
+
+     const MultiSelectGrid = ({ title, options, selected, onChange }: {title: string, options: string[], selected: string[], onChange: (value: string) => void}) => (
+        <div>
+            <h4 className="text-lg font-semibold text-white mb-2">{title}</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {options.map(option => (
+                    <button 
+                        key={option} 
+                        type="button"
+                        onClick={() => onChange(option)}
+                        className={`text-sm text-center p-2 rounded-full border-2 transition-colors ${selected.includes(option) ? 'bg-brand-cyan/20 border-brand-cyan text-white' : 'border-gray-600 text-gray-300 hover:border-brand-cyan/50'}`}
+                    >
+                        {option}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
 
     return (
         <div>
-            <h2 className="text-2xl font-bold mb-6">Edit Profile</h2>
-            <div className="bg-brand-dark p-6 rounded-lg">
-                <h3 className="text-xl font-semibold text-brand-cyan mb-4">Profile Picture</h3>
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                     <img 
-                        src={previewUrl || dj.profileImage} 
-                        alt="Profile" 
-                        className="w-40 h-40 rounded-full object-cover ring-4 ring-brand-violet"
-                    />
-                    <div className="flex-grow">
-                         <input 
-                            type="file" 
-                            id="profile-image-upload" 
-                            accept="image/png, image/jpeg" 
-                            onChange={handleFileChange}
-                            className="hidden"
-                        />
-                        <label 
-                            htmlFor="profile-image-upload"
-                            className="cursor-pointer bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition-colors duration-300"
-                        >
-                            Choose Image...
-                        </label>
-                        {selectedFile && <p className="text-sm text-gray-400 mt-2">Selected: {selectedFile.name}</p>}
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Edit Profile</h2>
+                <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-2 px-6 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 flex items-center justify-center min-w-[120px]"
+                >
+                    {isSaving ? <LoaderIcon className="w-5 h-5"/> : 'Save Changes'}
+                </button>
+            </div>
+            
+            <div className="space-y-6">
+                 <div className="bg-brand-dark p-6 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InputField label="Stage Name" name="name" value={formData.name} onChange={handleChange} placeholder="e.g., DJ Rohan" />
+                    <InputField label="Phone Number" name="phone" value={formData.phone} onChange={handleChange} placeholder="e.g., 9099110411" />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">City</label>
+                        <select name="city" value={formData.city} onChange={handleChange} className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none">
+                            <option value="">Select City</option>
+                            {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
                     </div>
-                </div>
-                 <div className="mt-6 text-right">
-                    <button
-                        onClick={handleUpload}
-                        disabled={!selectedFile || isUploading}
-                        className="bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-2 px-6 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[180px]"
-                    >
-                        {isUploading ? (
-                            <>
-                                <LoaderIcon className="w-5 h-5" />
-                                <span className="ml-2">Uploading...</span>
-                            </>
-                        ) : (
-                            'Save Profile Image'
-                        )}
-                    </button>
-                </div>
-                {uploadSuccess && (
-                    <div className="mt-4 flex items-center gap-2 text-green-400">
-                        <CheckCircleIcon className="w-6 h-6" />
-                        <p>Profile image updated successfully!</p>
+                     <InputField label="Minimum Fee (per event)" name="minFee" value={formData.minFee} onChange={handleChange} placeholder="e.g., 25000" type="number" />
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Bio</label>
+                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={4} placeholder="Tell us about your style, experience, and what makes you a great DJ." className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none"></textarea>
                     </div>
-                )}
+                 </div>
+
+                 <div className="bg-brand-dark p-6 rounded-lg space-y-6">
+                    <MultiSelectGrid title="Genres You Play" options={GENRES} selected={formData.genres || []} onChange={(val) => handleMultiSelectChange('genres', val)} />
+                    <MultiSelectGrid title="Event Types You Specialize In" options={EVENT_TYPES} selected={formData.eventTypes || []} onChange={(val) => handleMultiSelectChange('eventTypes', val)} />
+                 </div>
+                
+                 <div className="bg-brand-dark p-6 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InputField label="Instagram URL" name="instagram" value={formData.instagram} onChange={handleChange} placeholder="https://instagram.com/yourprofile" />
+                    <InputField label="YouTube URL" name="youtube" value={formData.youtube} onChange={handleChange} placeholder="https://youtube.com/yourchannel" />
+                    <InputField label="SoundCloud URL" name="soundcloud" value={formData.soundcloud} onChange={handleChange} placeholder="https://soundcloud.com/yourprofile" />
+                 </div>
             </div>
         </div>
     );

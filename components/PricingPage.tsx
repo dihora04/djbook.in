@@ -5,9 +5,10 @@ import { CheckCircleIcon } from './icons';
 
 interface PricingPageProps {
   setView: (view: View) => void;
+  openRegisterModal: () => void;
 }
 
-const PricingCard = ({ tier, price, features, primary = false }: { tier: string, price: string, features: string[], primary?: boolean }) => (
+const PricingCard = ({ tier, price, features, primary = false, onGetStarted }: { tier: string, price: string, features: string[], primary?: boolean, onGetStarted: () => void }) => (
     <div className={`border rounded-xl p-8 flex flex-col ${primary ? 'bg-brand-surface border-brand-violet shadow-2xl shadow-brand-violet/20' : 'border-gray-700'}`}>
         <h3 className="text-2xl font-bold text-brand-cyan">{tier}</h3>
         <p className="text-4xl font-bold my-4">{price}<span className="text-lg font-normal text-gray-400">/month</span></p>
@@ -19,14 +20,17 @@ const PricingCard = ({ tier, price, features, primary = false }: { tier: string,
                 </li>
             ))}
         </ul>
-        <button className={`mt-auto w-full font-bold py-3 px-6 rounded-full transition-transform duration-300 hover:scale-105 ${primary ? 'bg-gradient-to-r from-brand-violet to-brand-cyan' : 'bg-gray-600 hover:bg-gray-500'}`}>
+        <button 
+            onClick={onGetStarted}
+            className={`mt-auto w-full font-bold py-3 px-6 rounded-full transition-transform duration-300 hover:scale-105 ${primary ? 'bg-gradient-to-r from-brand-violet to-brand-cyan' : 'bg-gray-600 hover:bg-gray-500'}`}
+        >
             Get Started
         </button>
     </div>
 );
 
 
-const PricingPage: React.FC<PricingPageProps> = ({ setView }) => {
+const PricingPage: React.FC<PricingPageProps> = ({ setView, openRegisterModal }) => {
   return (
     <div className="pt-24 bg-brand-dark min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -49,6 +53,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ setView }) => {
               'Limited Visibility in Search',
               'Email Support',
             ]}
+            onGetStarted={openRegisterModal}
           />
           <PricingCard
             tier="Pro"
@@ -62,6 +67,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ setView }) => {
               'Priority Support',
             ]}
             primary
+            onGetStarted={openRegisterModal}
           />
           <PricingCard
             tier="Elite"
@@ -74,6 +80,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ setView }) => {
                 'Advanced Profile Analytics',
                 'Dedicated Account Manager'
             ]}
+            onGetStarted={openRegisterModal}
           />
         </div>
       </div>

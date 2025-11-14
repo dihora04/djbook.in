@@ -9,13 +9,13 @@ const CursorPianoEffect: React.FC = () => {
     const reverbLevelNodeRef = useRef<GainNode | null>(null);
     const lastMoveRef = useRef(0);
 
-    // --- Hardcoded settings from the demo panel ---
+    // --- Refined settings for a "Happy & Soulful" experience ---
     const settings = {
         pianoMode: true,
-        scale: 'pentatonic',
-        reverb: 0.12,
-        masterVol: 0.9,
-        throttleMs: 40,
+        scale: 'major', // Changed to Major for a happier, uplifting feel
+        reverb: 0.25,    // Increased for a more lush, ambient sound
+        masterVol: 0.5, // Reduced to a comfortable medium level
+        throttleMs: 80, // Increased to create more melodic spacing between notes
     };
 
     useEffect(() => {
@@ -24,7 +24,7 @@ const CursorPianoEffect: React.FC = () => {
         const ctx = canvas.getContext('2d', { alpha: true });
         if (!ctx) return;
 
-        // --- Visual Animation Logic ---
+        // --- Visual Animation Logic (no changes here) ---
         const CHARS = ['♪', '♫', '♩', '♬'];
         let DPR = Math.max(1, window.devicePixelRatio || 1);
 
@@ -121,40 +121,61 @@ const CursorPianoEffect: React.FC = () => {
             const reverbLevelNode = reverbLevelNodeRef.current!;
 
             const now = audioCtx.currentTime + time;
-            const osc1 = audioCtx.createOscillator();
-            const osc2 = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            const biquad = audioCtx.createBiquadFilter();
-            biquad.type = 'lowpass';
-            biquad.frequency.value = 8200;
-            osc1.type = 'triangle';
-            osc2.type = 'sine';
-            osc1.frequency.value = freq;
-            osc2.frequency.value = freq * 2.001;
-            osc2.detune.value = (Math.random() - 0.5) * 8;
             
-            const a = 0.005, d = 0.18, s = 0.18, r = 0.9;
+            // --- New Synth Voice ---
+            const osc1 = audioCtx.createOscillator(); // Main tone
+            const osc2 = audioCtx.createOscillator(); // Sub-bass/body
+            const gainNode = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            
+            // Vibrato for soulful feel
+            const lfo = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+            lfo.type = 'sine';
+            lfo.frequency.value = 5 + Math.random() * 2; // Natural vibrato speed
+            lfoGain.gain.value = 4; // Vibrato depth
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc1.detune);
+
+            // Tonal characteristics for a warmer, happier sound
+            filter.type = 'lowpass';
+            filter.frequency.value = 2500;
+            filter.Q.value = 2;
+
+            osc1.type = 'sawtooth'; // Richer, warmer harmonic content
+            osc2.type = 'sine';    // Deep, clean fundamental tone
+
+            osc1.frequency.value = freq;
+            osc2.frequency.value = freq / 2; // One octave lower for body
+            
+            // Envelope (ADSR) for a softer attack and longer, soulful release
+            const a = 0.02, d = 0.3, s = 0.2, r = 1.5; // Longer release for ambient feel
             const peak = Math.max(0.001, vel);
             gainNode.gain.setValueAtTime(0.0001, now);
-            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, peak * 1.0), now + a);
-            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * s), now + a + d);
+            gainNode.gain.exponentialRampToValueAtTime(peak, now + a);
+            gainNode.gain.exponentialRampToValueAtTime(peak * s, now + a + d);
             
-            const dur = 0.8 + Math.random() * 0.6;
-            gainNode.gain.setValueAtTime(Math.max(0.0001, peak * s), now + dur);
+            const dur = 0.5 + Math.random() * 0.4;
+            gainNode.gain.setValueAtTime(peak * s, now + dur);
             gainNode.gain.exponentialRampToValueAtTime(0.0001, now + dur + r);
 
-            osc1.connect(biquad);
-            osc2.connect(biquad);
-            biquad.connect(gainNode);
+            // Routing
+            osc1.connect(filter);
+            osc2.connect(gainNode); // Mix sub-oscillator post-filter for clean bass
+            filter.connect(gainNode);
             gainNode.connect(masterGain);
             gainNode.connect(reverbLevelNode);
             
+            // Start/Stop
+            lfo.start(now);
             osc1.start(now);
             osc2.start(now);
-            osc1.stop(now + dur + r + 0.1);
-            osc2.stop(now + dur + r + 0.1);
+            const stopTime = now + dur + r + 0.2;
+            lfo.stop(stopTime);
+            osc1.stop(stopTime);
+            osc2.stop(stopTime);
             
-            setTimeout(() => { try { osc1.disconnect(); osc2.disconnect(); biquad.disconnect(); gainNode.disconnect(); } catch (e) {} }, (dur + r + 0.2) * 1000);
+            setTimeout(() => { try { lfo.disconnect(); osc1.disconnect(); osc2.disconnect(); filter.disconnect(); gainNode.disconnect(); } catch (e) {} }, (stopTime - now) * 1000);
         };
 
         const quantizeToScale = (x: number, scaleName: 'pentatonic' | 'major' | 'minor') => {
@@ -189,7 +210,7 @@ const CursorPianoEffect: React.FC = () => {
             const freq = quantizeToScale(Math.min(0.999, Math.max(0, x)), settings.scale as any);
             const vel = 0.2 + (1 - Math.min(1, Math.max(0, y))) * 0.85;
             
-            if (panNodeRef.current) panNodeRef.current.pan.setValueAtTime((x - 0.5) * 1.6, audioCtxRef.current!.currentTime);
+            if (panNodeRef.current && audioCtxRef.current) panNodeRef.current.pan.setValueAtTime((x - 0.5) * 1.6, audioCtxRef.current.currentTime);
             playPiano(freq, vel, 0);
         };
         
@@ -205,7 +226,7 @@ const CursorPianoEffect: React.FC = () => {
                 const degree = step % scale.length;
                 const midi = ROOT + octave * 12 + scale[degree];
                 const freq = midiToFreq(midi);
-                setTimeout(() => playPiano(freq, 0.9 - i * 0.15, 0), i * 80);
+                setTimeout(() => playPiano(freq, 0.9 - i * 0.15, 0), i * 120); // Slowed down arpeggio
             }
         };
         

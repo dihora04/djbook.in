@@ -1,20 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import { DJProfile, View, DJCalendarEntry, CalendarStatus } from '../types';
-import { getDjBySlug, getPublicDjAvailability } from '../services/mockApiService';
+import { DJProfile, View, DJCalendarEntry, CalendarStatus, User } from '../types';
+import { getDjBySlug, getPublicDjAvailability, createBooking } from '../services/mockApiService';
 import { StarIcon, VerifiedIcon, MapPinIcon, ChevronLeftIcon, LoaderIcon, MusicIcon, CalendarIcon, CheckCircleIcon } from './icons';
 
 interface DjProfilePageProps {
   slug: string;
   setView: (view: View) => void;
+  currentUser: User | null;
+  showToast: (message: string, type?: 'success' | 'error') => void;
+  openLoginModal: () => void;
 }
 
-const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
+const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUser, showToast, openLoginModal }) => {
   const [dj, setDj] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [quoteRequested, setQuoteRequested] = useState(false);
   const [availability, setAvailability] = useState<Set<string>>(new Set());
   const [dateError, setDateError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchDjData = async () => {
@@ -26,7 +30,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
         const unavailableDates = new Set<string>();
         availabilityData.forEach(entry => {
           if (entry.status !== CalendarStatus.AVAILABLE) {
-             // Store date as YYYY-MM-DD string for easy comparison
             unavailableDates.add(new Date(entry.date).toISOString().split('T')[0]);
           }
         });
@@ -38,7 +41,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
   }, [slug]);
   
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDate = e.target.value; // YYYY-MM-DD format
+    const selectedDate = e.target.value;
     if (availability.has(selectedDate)) {
         setDateError('This date is unavailable. Please choose another.');
     } else {
@@ -46,13 +49,41 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
     }
   };
 
-  const handleRequestQuote = (e: React.FormEvent) => {
+  const handleRequestQuote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (dateError) {
-        alert("Please select an available date.");
+    if (!currentUser) {
+        showToast("Please log in or register to book a DJ.", "error");
+        openLoginModal();
         return;
     }
-    setQuoteRequested(true);
+    if (dateError) {
+        showToast("Please select an available date.", "error");
+        return;
+    }
+    if (!dj) return;
+
+    setIsSubmitting(true);
+    const formData = new FormData(e.target as HTMLFormElement);
+    const eventDate = formData.get('eventDate') as string;
+    const eventType = formData.get('eventType') as string;
+    
+    try {
+        await createBooking({
+            djId: dj.id,
+            customerId: currentUser.id,
+            customerName: currentUser.name,
+            eventDate: new Date(eventDate),
+            eventType,
+            location: dj.city, // simplified for demo
+            notes: 'New inquiry from profile page.'
+        });
+        setQuoteRequested(true);
+        showToast("Your inquiry has been sent!", "success");
+    } catch(error: any) {
+        showToast(error.message || "Failed to send inquiry.", "error");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -72,9 +103,10 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
     );
   }
 
+  const isVerified = dj.plan === 'PRO' || dj.plan === 'ELITE';
+
   return (
     <div className="bg-brand-dark text-white min-h-screen">
-      {/* Cover Image */}
       <div className="relative h-64 md:h-96">
         <img src={dj.coverImage} alt={`${dj.name} cover`} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-brand-dark to-transparent"></div>
@@ -86,9 +118,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         <div className="relative -mt-24 md:-mt-32">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
-            {/* Main Content */}
             <div className="lg:col-span-2">
-              {/* Header */}
               <div className="flex items-end space-x-5">
                 <div className="flex-shrink-0">
                   <div className="relative">
@@ -98,7 +128,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                 <div className="pt-1.5 pb-4">
                   <h1 className="text-3xl md:text-5xl font-bold text-white flex items-center gap-3">
                     {dj.name}
-                    {dj.verified && <VerifiedIcon className="w-8 h-8 text-brand-cyan" />}
+                    {isVerified && <VerifiedIcon className="w-8 h-8 text-brand-cyan" />}
                   </h1>
                   <p className="text-lg text-gray-400 flex items-center mt-2">
                     <MapPinIcon className="w-5 h-5 mr-2" /> {dj.city}
@@ -111,7 +141,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                 </div>
               </div>
 
-              {/* Bio & Details */}
               <div className="mt-8 space-y-8">
                 <div>
                   <h2 className="text-2xl font-bold text-brand-cyan mb-4">About</h2>
@@ -135,8 +164,26 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                         </div>
                     </div>
                 </div>
+                
+                 {dj.videos && dj.videos.length > 0 && (
+                     <div>
+                        <h2 className="text-2xl font-bold text-brand-cyan mb-4">Videos</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {dj.videos.map((videoUrl, i) => (
+                                <div key={i} className="aspect-video">
+                                    <iframe
+                                        className="w-full h-full rounded-lg"
+                                        src={videoUrl}
+                                        title={`DJ video ${i + 1}`}
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    ></iframe>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                 )}
 
-                 {/* Gallery */}
                 <div>
                   <h2 className="text-2xl font-bold text-brand-cyan mb-4">Gallery</h2>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -146,7 +193,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                   </div>
                 </div>
 
-                {/* Reviews */}
                 <div>
                   <h2 className="text-2xl font-bold text-brand-cyan mb-4">Reviews</h2>
                   <div className="space-y-6">
@@ -173,7 +219,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
               </div>
             </div>
 
-            {/* Sticky Booking Card */}
             <div className="lg:col-span-1 mt-8 lg:mt-0">
               <div className="sticky top-24">
                  <div className="bg-brand-surface rounded-xl shadow-lg p-6">
@@ -181,7 +226,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                          <div className="text-center py-8">
                             <CheckCircleIcon className="w-16 h-16 text-green-400 mx-auto mb-4" />
                             <h3 className="text-2xl font-bold text-white">Inquiry Sent!</h3>
-                            <p className="text-gray-300 mt-2">{dj.name} will get back to you shortly via email & WhatsApp.</p>
+                            <p className="text-gray-300 mt-2">{dj.name} will get back to you shortly.</p>
                          </div>
                     ) : (
                         <>
@@ -196,6 +241,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                               <input 
                                 required 
                                 type="date"
+                                name="eventDate"
                                 min={new Date().toISOString().split("T")[0]}
                                 onChange={handleDateChange}
                                 className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" 
@@ -204,12 +250,12 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView }) => {
                             </div>
                              <div>
                               <label className="text-sm font-medium text-gray-300">Event Type</label>
-                              <select required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none">
+                              <select name="eventType" required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none">
                                 {dj.eventTypes.map(e => <option key={e}>{e}</option>)}
                               </select>
                             </div>
-                            <button type="submit" disabled={!!dateError} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
-                              Request a Quote
+                            <button type="submit" disabled={!!dateError || isSubmitting} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
+                              {isSubmitting ? <LoaderIcon className="w-6 h-6"/> : 'Request a Quote'}
                             </button>
                           </form>
                           <p className="text-xs text-gray-500 text-center mt-4">You won't be charged yet</p>
