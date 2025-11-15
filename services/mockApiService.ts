@@ -4,18 +4,26 @@ import { MOCK_DJS, MOCK_BOOKINGS, MOCK_USERS, MOCK_CALENDAR_ENTRIES } from '../c
 
 const ARTIFICIAL_DELAY = 500;
 
-// This is a mutable store for the sake of the demo. In a real app, this would be a database.
-let calendarEntriesStore = [...MOCK_CALENDAR_ENTRIES];
-let bookingsStore = [...MOCK_BOOKINGS];
-let usersStore = [...MOCK_USERS];
-let djsStore = [...MOCK_DJS];
+// --- FIX: Persist mock database on the window object ---
+// This prevents the data from being reset on every hot-reload in development.
+if (!(window as any).mockDb) {
+  console.log("Initializing mock database...");
+  (window as any).mockDb = {
+    djsStore: [...MOCK_DJS],
+    bookingsStore: [...MOCK_BOOKINGS],
+    usersStore: [...MOCK_USERS],
+    calendarEntriesStore: [...MOCK_CALENDAR_ENTRIES],
+  };
+}
+
+const db = (window as any).mockDb;
 
 
 export const loginUser = async (email: string, password_param: string): Promise<User> => {
     console.log(`Attempting to log in user with email: ${email}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const user = usersStore.find(u => u.email.toLowerCase() === email.toLowerCase());
+            const user = db.usersStore.find(u => u.email.toLowerCase() === email.toLowerCase());
             if (user && user.password === password_param) {
                 console.log("Login successful for:", user.name);
                 resolve(user);
@@ -31,7 +39,7 @@ export const registerUser = async (name: string, email: string, password_param: 
     console.log(`Attempting to register new user: ${email} with role: ${role}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (usersStore.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+            if (db.usersStore.some(u => u.email.toLowerCase() === email.toLowerCase())) {
                 console.log("Registration failed: Email already exists");
                 return reject(new Error('A user with this email already exists.'));
             }
@@ -66,13 +74,14 @@ export const registerUser = async (name: string, email: string, password_param: 
                     approvalStatus: 'PENDING',
                     plan: SubscriptionTier.FREE
                 };
-                djsStore.push(newDjProfile);
+                db.djsStore.push(newDjProfile);
                 newUser.djProfileId = newDjProfile.id;
                 console.log("Created new PENDING DJ profile:", newDjProfile.id);
             }
 
-            usersStore.push(newUser);
+            db.usersStore.push(newUser);
             console.log("Registration successful for new user:", newUser);
+            console.log("Current DJs in store:", db.djsStore.length);
             resolve(newUser);
 
         }, ARTIFICIAL_DELAY);
@@ -83,7 +92,7 @@ export const getDjs = async (): Promise<DJProfile[]> => {
   console.log('Fetching all approved DJs...');
   return new Promise(resolve => {
     setTimeout(() => {
-      resolve(djsStore.filter(dj => dj.approvalStatus === 'APPROVED'));
+      resolve(db.djsStore.filter(dj => dj.approvalStatus === 'APPROVED'));
     }, ARTIFICIAL_DELAY);
   });
 };
@@ -92,7 +101,7 @@ export const getAllDjsForAdmin = async (): Promise<DJProfile[]> => {
   console.log('Fetching all DJs for admin...');
   return new Promise(resolve => {
     setTimeout(() => {
-      resolve(djsStore);
+      resolve(db.djsStore);
     }, ARTIFICIAL_DELAY);
   });
 };
@@ -102,17 +111,25 @@ export const getFeaturedDjs = async (): Promise<DJProfile[]> => {
     console.log('Fetching featured DJs...');
     return new Promise(resolve => {
       setTimeout(() => {
-        resolve(djsStore.filter(dj => dj.featured && dj.approvalStatus === 'APPROVED'));
+        resolve(db.djsStore.filter(dj => dj.featured && dj.approvalStatus === 'APPROVED'));
       }, ARTIFICIAL_DELAY);
     });
 };
 
+// --- FIX: Prevent pending profiles from being viewed publicly ---
 export const getDjBySlug = async (slug: string): Promise<DJProfile | undefined> => {
   console.log(`Fetching DJ with slug: ${slug}`);
   return new Promise(resolve => {
     setTimeout(() => {
-      const dj = djsStore.find(dj => dj.slug === slug);
-      resolve(dj);
+      const dj = db.djsStore.find(dj => dj.slug === slug);
+      // Only return APPROVED DJs on the public profile page.
+      if (dj && dj.approvalStatus === 'APPROVED') {
+        resolve(dj);
+      } else {
+        // Return undefined if DJ is not found, pending, or rejected.
+        // The UI will show a "DJ Not Found" message.
+        resolve(undefined);
+      }
     }, ARTIFICIAL_DELAY);
   });
 };
@@ -121,8 +138,8 @@ export const getDjById = async (id: string): Promise<DJProfile | undefined> => {
   console.log(`Fetching DJ with id: ${id}`);
   return new Promise(resolve => {
     setTimeout(() => {
-      const dj = djsStore.find(dj => dj.id === id);
-      resolve(dj);
+      const dj = db.djsStore.find(dj => dj.id === id);
+      resolve(dj); // This is used by the dashboard, so it's okay to return any status.
     }, ARTIFICIAL_DELAY);
   });
 };
@@ -131,7 +148,7 @@ export const getBookingsByDjId = async (djId: string): Promise<Booking[]> => {
     console.log(`Fetching bookings for DJ: ${djId}`);
     return new Promise(resolve => {
         setTimeout(() => {
-            resolve(bookingsStore.filter(booking => booking.djId === djId));
+            resolve(db.bookingsStore.filter(booking => booking.djId === djId));
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -140,7 +157,7 @@ export const getAllBookings = async (): Promise<Booking[]> => {
     console.log("Fetching all bookings for admin...");
      return new Promise(resolve => {
         setTimeout(() => {
-            resolve(bookingsStore);
+            resolve(db.bookingsStore);
         }, ARTIFICIAL_DELAY);
     });
 }
@@ -149,8 +166,8 @@ export const getBookingsByCustomerId = async (customerId: string): Promise<Booki
     console.log(`Fetching bookings for customer: ${customerId}`);
     return new Promise(resolve => {
         setTimeout(() => {
-            const bookings = bookingsStore.filter(booking => booking.customerId === customerId).map(b => {
-                const dj = djsStore.find(d => d.id === b.djId);
+            const bookings = db.bookingsStore.filter(booking => booking.customerId === customerId).map(b => {
+                const dj = db.djsStore.find(d => d.id === b.djId);
                 return {...b, djName: dj?.name || 'Unknown DJ', djProfileImage: dj?.profileImage || ''};
             });
             resolve(bookings);
@@ -162,7 +179,7 @@ export const getDjCalendarEntries = async (djId: string): Promise<DJCalendarEntr
     console.log(`Fetching calendar entries for DJ: ${djId}`);
     return new Promise(resolve => {
         setTimeout(() => {
-            resolve(calendarEntriesStore.filter(entry => entry.djProfileId === djId));
+            resolve(db.calendarEntriesStore.filter(entry => entry.djProfileId === djId));
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -171,7 +188,7 @@ export const getPublicDjAvailability = async (djId: string): Promise<Pick<DJCale
     console.log(`Fetching public availability for DJ: ${djId}`);
     return new Promise(resolve => {
         setTimeout(() => {
-            const entries = calendarEntriesStore
+            const entries = db.calendarEntriesStore
                 .filter(entry => entry.djProfileId === djId)
                 .map(({ date, status }) => ({ date, status }));
             resolve(entries);
@@ -186,18 +203,18 @@ export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCale
             const dateToFind = entryData.date.setHours(0,0,0,0);
             let updatedEntry: DJCalendarEntry | undefined;
 
-            const existingEntryIndex = calendarEntriesStore.findIndex(entry => 
+            const existingEntryIndex = db.calendarEntriesStore.findIndex(entry => 
                 entry.djProfileId === djId && entry.date.setHours(0,0,0,0) === dateToFind
             );
 
             if (existingEntryIndex !== -1) {
                 if (entryData.status === CalendarStatus.AVAILABLE) {
-                    updatedEntry = calendarEntriesStore[existingEntryIndex];
-                    calendarEntriesStore.splice(existingEntryIndex, 1);
+                    updatedEntry = db.calendarEntriesStore[existingEntryIndex];
+                    db.calendarEntriesStore.splice(existingEntryIndex, 1);
                      console.log('Removed entry:', updatedEntry);
                 } else {
-                    calendarEntriesStore[existingEntryIndex] = { ...calendarEntriesStore[existingEntryIndex], ...entryData };
-                    updatedEntry = calendarEntriesStore[existingEntryIndex];
+                    db.calendarEntriesStore[existingEntryIndex] = { ...db.calendarEntriesStore[existingEntryIndex], ...entryData };
+                    updatedEntry = db.calendarEntriesStore[existingEntryIndex];
                      console.log('Updated entry:', updatedEntry);
                 }
             } else if (entryData.status !== CalendarStatus.AVAILABLE) {
@@ -206,7 +223,7 @@ export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCale
                     id: `cal-entry-${Date.now()}`,
                     djProfileId: djId,
                 };
-                calendarEntriesStore.push(updatedEntry);
+                db.calendarEntriesStore.push(updatedEntry);
                  console.log('Created new entry:', updatedEntry);
             }
             
@@ -220,25 +237,25 @@ export const acceptBooking = async (bookingId: string, djId: string): Promise<Bo
     console.log(`Accepting booking ${bookingId} for DJ ${djId}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const bookingIndex = bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
+            const bookingIndex = db.bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
             if (bookingIndex === -1) {
                 return reject(new Error('Booking not found'));
             }
 
-            const updatedBooking = { ...bookingsStore[bookingIndex], status: BookingStatus.ACCEPTED };
-            bookingsStore[bookingIndex] = updatedBooking;
+            const updatedBooking = { ...db.bookingsStore[bookingIndex], status: BookingStatus.ACCEPTED };
+            db.bookingsStore[bookingIndex] = updatedBooking;
 
             const dateToFind = updatedBooking.eventDate.setHours(0,0,0,0);
-            const calendarEntryIndex = calendarEntriesStore.findIndex(entry => 
+            const calendarEntryIndex = db.calendarEntriesStore.findIndex(entry => 
                 entry.djProfileId === djId && entry.date.setHours(0,0,0,0) === dateToFind
             );
 
             if (calendarEntryIndex !== -1) {
-                calendarEntriesStore[calendarEntryIndex].status = CalendarStatus.BOOKED;
-                calendarEntriesStore[calendarEntryIndex].title = `Platform: ${updatedBooking.eventType}`;
-                calendarEntriesStore[calendarEntryIndex].bookingId = bookingId;
+                db.calendarEntriesStore[calendarEntryIndex].status = CalendarStatus.BOOKED;
+                db.calendarEntriesStore[calendarEntryIndex].title = `Platform: ${updatedBooking.eventType}`;
+                db.calendarEntriesStore[calendarEntryIndex].bookingId = bookingId;
             } else {
-                calendarEntriesStore.push({
+                db.calendarEntriesStore.push({
                     id: `cal-entry-${Date.now()}`,
                     djProfileId: djId,
                     date: updatedBooking.eventDate,
@@ -248,7 +265,7 @@ export const acceptBooking = async (bookingId: string, djId: string): Promise<Bo
                 });
             }
             
-            console.log("Updated Calendar:", calendarEntriesStore);
+            console.log("Updated Calendar:", db.calendarEntriesStore);
             resolve(updatedBooking);
         }, ARTIFICIAL_DELAY);
     });
@@ -258,26 +275,26 @@ export const rejectBooking = async (bookingId: string, djId: string): Promise<Bo
     console.log(`Rejecting booking ${bookingId} for DJ ${djId}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const bookingIndex = bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
+            const bookingIndex = db.bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
             if (bookingIndex === -1) {
                 return reject(new Error('Booking not found'));
             }
 
-            const updatedBooking = { ...bookingsStore[bookingIndex], status: BookingStatus.REJECTED };
-            bookingsStore[bookingIndex] = updatedBooking;
+            const updatedBooking = { ...db.bookingsStore[bookingIndex], status: BookingStatus.REJECTED };
+            db.bookingsStore[bookingIndex] = updatedBooking;
 
             const dateToFind = updatedBooking.eventDate.setHours(0,0,0,0);
-            const calendarEntryIndex = calendarEntriesStore.findIndex(entry => 
+            const calendarEntryIndex = db.calendarEntriesStore.findIndex(entry => 
                 entry.djProfileId === djId && 
                 entry.date.setHours(0,0,0,0) === dateToFind &&
                 entry.bookingId === bookingId
             );
 
             if (calendarEntryIndex !== -1) {
-                calendarEntriesStore.splice(calendarEntryIndex, 1);
+                db.calendarEntriesStore.splice(calendarEntryIndex, 1);
             }
             
-            console.log("Updated Calendar:", calendarEntriesStore);
+            console.log("Updated Calendar:", db.calendarEntriesStore);
             resolve(updatedBooking);
         }, ARTIFICIAL_DELAY);
     });
@@ -289,7 +306,7 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'dj
         setTimeout(() => {
             // Check availability
             const dateToCheck = bookingData.eventDate.toISOString().split('T')[0];
-            const djCalendar = calendarEntriesStore.filter(e => e.djProfileId === bookingData.djId);
+            const djCalendar = db.calendarEntriesStore.filter(e => e.djProfileId === bookingData.djId);
             const isUnavailable = djCalendar.some(e => e.date.toISOString().split('T')[0] === dateToCheck && e.status !== CalendarStatus.AVAILABLE);
 
             if (isUnavailable) {
@@ -297,7 +314,7 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'dj
                 return reject(new Error("The selected date is no longer available."));
             }
 
-            const dj = djsStore.find(d => d.id === bookingData.djId);
+            const dj = db.djsStore.find(d => d.id === bookingData.djId);
             if (!dj) return reject(new Error("DJ not found"));
 
             const newBooking: Booking = {
@@ -307,10 +324,10 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'dj
                 djName: dj.name,
                 djProfileImage: dj.profileImage
             };
-            bookingsStore.push(newBooking);
+            db.bookingsStore.push(newBooking);
 
             // Add a HOLD entry to the calendar
-            calendarEntriesStore.push({
+            db.calendarEntriesStore.push({
                 id: `cal-entry-${Date.now()}`,
                 djProfileId: bookingData.djId,
                 date: newBooking.eventDate,
@@ -329,13 +346,13 @@ export const updateDjProfile = async (djId: string, profileData: Partial<DJProfi
     console.log("Updating profile for DJ:", djId);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex(d => d.id === djId);
             if (djIndex === -1) {
                 return reject(new Error("DJ profile not found"));
             }
-            djsStore[djIndex] = { ...djsStore[djIndex], ...profileData };
+            db.djsStore[djIndex] = { ...db.djsStore[djIndex], ...profileData };
             console.log("Profile updated successfully");
-            resolve(djsStore[djIndex]);
+            resolve(db.djsStore[djIndex]);
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -344,10 +361,10 @@ export const approveDj = async (djId: string): Promise<DJProfile> => {
     console.log("Approving DJ:", djId);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex(d => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
-            djsStore[djIndex].approvalStatus = 'APPROVED';
-            resolve(djsStore[djIndex]);
+            db.djsStore[djIndex].approvalStatus = 'APPROVED';
+            resolve(db.djsStore[djIndex]);
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -356,10 +373,10 @@ export const rejectDj = async (djId: string): Promise<DJProfile> => {
     console.log("Rejecting DJ:", djId);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex(d => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
-            djsStore[djIndex].approvalStatus = 'REJECTED';
-            resolve(djsStore[djIndex]);
+            db.djsStore[djIndex].approvalStatus = 'REJECTED';
+            resolve(db.djsStore[djIndex]);
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -368,15 +385,15 @@ export const upgradeSubscription = async (djId: string, plan: SubscriptionTier):
     console.log(`Upgrading subscription for DJ ${djId} to ${plan}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex(d => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
-            djsStore[djIndex].plan = plan;
+            db.djsStore[djIndex].plan = plan;
             if (plan === SubscriptionTier.PRO || plan === SubscriptionTier.ELITE) {
-                djsStore[djIndex].verified = true;
+                db.djsStore[djIndex].verified = true;
             } else {
-                 djsStore[djIndex].verified = false;
+                 db.djsStore[djIndex].verified = false;
             }
-            resolve(djsStore[djIndex]);
+            resolve(db.djsStore[djIndex]);
         }, ARTIFICIAL_DELAY);
     });
 }
