@@ -15,11 +15,16 @@ import { Toast, ToastMessage } from './components/ui/Toast';
 import CursorPianoEffect from './components/ui/CursorPianoEffect';
 import { loginUser, registerUser } from './services/mockApiService';
 
+interface AuthModalConfig {
+  isOpen: boolean;
+  initialTab?: 'login' | 'register';
+  initialRole?: Role;
+}
 
 function App() {
   const [view, setView] = useState<View>({ page: 'home' });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalConfig, setAuthModalConfig] = useState<AuthModalConfig>({ isOpen: false });
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -31,7 +36,7 @@ function App() {
     try {
       const user = await loginUser(email, password_param);
       setCurrentUser(user);
-      setAuthModalOpen(false);
+      setAuthModalConfig({ isOpen: false });
       showToast('Login successful!', 'success');
       // Redirect based on role
       if (user.role === Role.DJ) setView({ page: 'dj-dashboard' });
@@ -45,17 +50,25 @@ function App() {
     }
   };
 
-  const handleRegister = async (name: string, email: string, password_param: string, role: Role): Promise<User> => {
+  const handleRegister = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }): Promise<User> => {
      try {
-      const newUser = await registerUser(name, email, password_param, role);
+      const newUser = await registerUser(name, email, password_param, role, location);
+      setAuthModalConfig({ isOpen: false });
+
+      if (newUser.role === Role.DJ) {
+        // Don't log them in, they need approval first.
+        showToast('Thanks! Your profile is submitted for admin approval.', 'success');
+        setView({ page: 'home' });
+        // We return the user but don't set it as currentUser
+        return newUser;
+      }
+      
+      // For customers, log them in immediately.
       setCurrentUser(newUser);
-      setAuthModalOpen(false);
       showToast('Registration successful!', 'success');
-       // Redirect based on role
-      if (newUser.role === Role.DJ) setView({ page: 'dj-dashboard' });
-      else if (newUser.role === Role.CUSTOMER) setView({ page: 'user-dashboard' });
-      else setView({ page: 'home' });
+      setView({ page: 'user-dashboard' });
       return newUser;
+
     } catch (error: any) {
       showToast(error.message || 'Registration failed.', 'error');
       throw error;
@@ -71,9 +84,12 @@ function App() {
   const authProps = {
     currentUser,
     logout: handleLogout,
-    openLoginModal: () => setAuthModalOpen(true),
+    openLoginModal: () => setAuthModalConfig({ isOpen: true, initialTab: 'login', initialRole: Role.CUSTOMER }),
   };
 
+  const openRegisterAsDjModal = () => {
+    setAuthModalConfig({ isOpen: true, initialTab: 'register', initialRole: Role.DJ });
+  };
 
   const renderContent = () => {
     switch (view.page) {
@@ -87,7 +103,7 @@ function App() {
         }
         return <SearchPage setView={setView} />;
       case 'pricing':
-        return <PricingPage setView={setView} openRegisterModal={() => setAuthModalOpen(true)} />;
+        return <PricingPage setView={setView} openRegisterModal={openRegisterAsDjModal} />;
       case 'dj-dashboard':
          if (currentUser?.role === Role.DJ && currentUser.djProfileId) {
           return <DjDashboardPage key={currentUser.id} djId={currentUser.djProfileId} setView={setView} showToast={showToast} />;
@@ -120,10 +136,12 @@ function App() {
         {renderContent()}
       </main>
       <Footer setView={setView}/>
-      {isAuthModalOpen && <AuthModal 
-        closeModal={() => setAuthModalOpen(false)}
+      {authModalConfig.isOpen && <AuthModal 
+        closeModal={() => setAuthModalConfig({ isOpen: false })}
         onLogin={handleLogin}
         onRegister={handleRegister}
+        initialTab={authModalConfig.initialTab}
+        initialRole={authModalConfig.initialRole}
       />}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>

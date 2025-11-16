@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { DJProfile } from '../../types';
-import { LoaderIcon, CheckCircleIcon } from '../icons';
+import { LoaderIcon, MapPinIcon } from '../icons';
 import { CITIES, GENRES, EVENT_TYPES } from '../../constants';
 import { updateDjProfile } from '../../services/mockApiService';
 
@@ -15,6 +15,7 @@ interface ProfileEditSectionProps {
 const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, showToast }) => {
     const [formData, setFormData] = useState<Partial<DJProfile>>(dj);
     const [isSaving, setIsSaving] = useState(false);
+    const [isLocating, setIsLocating] = useState(false);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -27,6 +28,26 @@ const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, show
             ? currentValues.filter(item => item !== value)
             : [...currentValues, value];
         setFormData(prev => ({ ...prev, [field]: newValues }));
+    };
+
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            showToast("Geolocation is not supported by your browser.", "error");
+            return;
+        }
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setFormData(prev => ({ ...prev, latitude, longitude }));
+                showToast("Location captured successfully!", "success");
+                setIsLocating(false);
+            },
+            () => {
+                showToast("Unable to retrieve your location.", "error");
+                setIsLocating(false);
+            }
+        );
     };
 
     const handleSave = async () => {
@@ -102,6 +123,18 @@ const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, show
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-300 mb-1">Bio</label>
                         <textarea name="bio" value={formData.bio} onChange={handleChange} rows={4} placeholder="Tell us about your style, experience, and what makes you a great DJ." className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none"></textarea>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Your Location</label>
+                         <button type="button" onClick={handleGetLocation} disabled={isLocating} className="w-full flex justify-center items-center gap-2 p-3 rounded-lg border-2 border-gray-600 hover:border-brand-cyan transition-colors disabled:opacity-50">
+                            {isLocating ? <LoaderIcon className="w-5 h-5" /> : <MapPinIcon className="w-5 h-5" />}
+                            {isLocating ? 'Getting Location...' : 'Use My Current Location'}
+                        </button>
+                        {formData.latitude && formData.longitude && (
+                            <p className="text-xs text-gray-400 mt-2 text-center">
+                                Current Location: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                            </p>
+                        )}
                     </div>
                  </div>
 

@@ -1,18 +1,20 @@
 
 import React, { useState } from 'react';
 import { Role } from '../../types';
-import { LoaderIcon } from '../icons';
+import { LoaderIcon, MapPinIcon, CheckCircleIcon } from '../icons';
 
 interface AuthModalProps {
     closeModal: () => void;
     onLogin: (email: string, pass: string) => Promise<any>;
-    onRegister: (name: string, email: string, pass: string, role: Role) => Promise<any>;
+    onRegister: (name: string, email: string, pass: string, role: Role, location?: { lat: number, lon: number }) => Promise<any>;
+    initialTab?: 'login' | 'register';
+    initialRole?: Role;
 }
 
 type AuthTab = 'login' | 'register';
 
-const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister }) => {
-    const [activeTab, setActiveTab] = useState<AuthTab>('login');
+const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister, initialTab, initialRole }) => {
+    const [activeTab, setActiveTab] = useState<AuthTab>(initialTab || 'login');
     const [isLoading, setIsLoading] = useState(false);
     
     // Login State
@@ -23,7 +25,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister }
     const [regName, setRegName] = useState('');
     const [regEmail, setRegEmail] = useState('');
     const [regPassword, setRegPassword] = useState('');
-    const [regRole, setRegRole] = useState<Role>(Role.CUSTOMER);
+    const [regRole, setRegRole] = useState<Role>(initialRole || Role.CUSTOMER);
+    const [regLocation, setRegLocation] = useState<{lat: number, lon: number} | null>(null);
+    const [isLocating, setIsLocating] = useState(false);
 
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,13 +49,33 @@ const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister }
         }
         setIsLoading(true);
         try {
-            await onRegister(regName, regEmail, regPassword, regRole);
+            await onRegister(regName, regEmail, regPassword, regRole, regLocation || undefined);
         } catch (error) {
            // Error toast is handled in App.tsx
         } finally {
             setIsLoading(false);
         }
     };
+    
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser.");
+            return;
+        }
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setRegLocation({ lat: latitude, lon: longitude });
+                setIsLocating(false);
+            },
+            () => {
+                alert("Unable to retrieve your location.");
+                setIsLocating(false);
+            }
+        );
+    };
+
 
     return (
         <div 
@@ -114,6 +138,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister }
                                <button type="button" onClick={() => setRegRole(Role.DJ)} className={`flex-1 p-3 rounded-lg border-2 ${regRole === Role.DJ ? 'border-brand-cyan bg-brand-cyan/10' : 'border-gray-600'}`}>DJ</button>
                             </div>
                         </div>
+                        {regRole === Role.DJ && (
+                             <div>
+                                <label className="text-sm font-medium text-gray-300 mb-2 block">Your Location (for nearby searches)</label>
+                                {regLocation ? (
+                                    <div className="flex items-center gap-2 text-green-400 bg-green-500/10 p-2 rounded-lg">
+                                        <CheckCircleIcon className="w-5 h-5"/>
+                                        <span className="text-sm font-semibold">Location Saved!</span>
+                                    </div>
+                                ) : (
+                                    <button type="button" onClick={handleGetLocation} disabled={isLocating} className="w-full flex justify-center items-center gap-2 p-3 rounded-lg border-2 border-gray-600 hover:border-brand-cyan transition-colors disabled:opacity-50">
+                                        {isLocating ? <LoaderIcon className="w-5 h-5" /> : <MapPinIcon className="w-5 h-5" />}
+                                        {isLocating ? 'Getting Location...' : 'Set Your Location'}
+                                    </button>
+                                )}
+                            </div>
+                        )}
                         <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 flex justify-center">
                             {isLoading ? <LoaderIcon className="w-6 h-6" /> : 'Register'}
                         </button>

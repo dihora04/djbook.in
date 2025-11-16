@@ -155,14 +155,14 @@ const DjManagementSection = ({ djs, onApproval }: { djs: DJProfile[], onApproval
                                         <div className="flex gap-2 justify-end">
                                             <button 
                                                 onClick={() => handleActionClick(dj.id, 'APPROVED')} 
-                                                disabled={!!loadingAction}
+                                                disabled={loadingAction?.startsWith(dj.id)}
                                                 className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-3 rounded-full transition-colors w-20 flex justify-center items-center disabled:opacity-50"
                                             >
                                                 {loadingAction === `${dj.id}-APPROVED` ? <LoaderIcon className="w-4 h-4" /> : 'Approve'}
                                             </button>
                                             <button 
                                                 onClick={() => handleActionClick(dj.id, 'REJECTED')} 
-                                                disabled={!!loadingAction}
+                                                disabled={loadingAction?.startsWith(dj.id)}
                                                 className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-full transition-colors w-20 flex justify-center items-center disabled:opacity-50"
                                             >
                                                  {loadingAction === `${dj.id}-REJECTED` ? <LoaderIcon className="w-4 h-4" /> : 'Reject'}

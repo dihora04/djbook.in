@@ -15,7 +15,6 @@ interface DjProfilePageProps {
 const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUser, showToast, openLoginModal }) => {
   const [dj, setDj] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quoteRequested, setQuoteRequested] = useState(false);
   const [availability, setAvailability] = useState<Set<string>>(new Set());
   const [dateError, setDateError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +67,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
     const eventType = formData.get('eventType') as string;
     
     try {
-        await createBooking({
+        const newBooking = await createBooking({
             djId: dj.id,
             customerId: currentUser.id,
             customerName: currentUser.name,
@@ -77,8 +76,8 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
             location: dj.city, // simplified for demo
             notes: 'New inquiry from profile page.'
         });
-        setQuoteRequested(true);
-        showToast("Your inquiry has been sent!", "success");
+        setView({ page: 'user-dashboard' });
+        showToast(`Booking request sent (ID: ${newBooking.id}). The DJ has been notified.`, "success");
     } catch(error: any) {
         showToast(error.message || "Failed to send inquiry.", "error");
     } finally {
@@ -222,46 +221,36 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
             <div className="lg:col-span-1 mt-8 lg:mt-0">
               <div className="sticky top-24">
                  <div className="bg-brand-surface rounded-xl shadow-lg p-6">
-                    {quoteRequested ? (
-                         <div className="text-center py-8">
-                            <CheckCircleIcon className="w-16 h-16 text-green-400 mx-auto mb-4" />
-                            <h3 className="text-2xl font-bold text-white">Inquiry Sent!</h3>
-                            <p className="text-gray-300 mt-2">{dj.name} will get back to you shortly.</p>
-                         </div>
-                    ) : (
-                        <>
-                          <h3 className="text-2xl font-bold text-white text-center">Book {dj.name}</h3>
-                          <div className="text-center my-4">
-                            <p className="text-gray-400 text-sm">Starting From</p>
-                            <p className="text-4xl font-bold text-brand-cyan">₹{dj.minFee.toLocaleString('en-IN')}</p>
-                          </div>
-                          <form className="space-y-4" onSubmit={handleRequestQuote}>
+                    <h3 className="text-2xl font-bold text-white text-center">Book {dj.name}</h3>
+                    <div className="text-center my-4">
+                        <p className="text-gray-400 text-sm">Starting From</p>
+                        <p className="text-4xl font-bold text-brand-cyan">₹{dj.minFee.toLocaleString('en-IN')}</p>
+                    </div>
+                    <form className="space-y-4" onSubmit={handleRequestQuote}>
+                        <div>
+                            <label className="text-sm font-medium text-gray-300">Event Date</label>
+                            <input 
+                            required 
+                            type="date"
+                            name="eventDate"
+                            min={new Date().toISOString().split("T")[0]}
+                            onChange={handleDateChange}
+                            className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" 
+                            />
+                            {dateError && <p className="text-red-400 text-sm mt-1">{dateError}</p>}
+                        </div>
                             <div>
-                              <label className="text-sm font-medium text-gray-300">Event Date</label>
-                              <input 
-                                required 
-                                type="date"
-                                name="eventDate"
-                                min={new Date().toISOString().split("T")[0]}
-                                onChange={handleDateChange}
-                                className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none" 
-                               />
-                               {dateError && <p className="text-red-400 text-sm mt-1">{dateError}</p>}
-                            </div>
-                             <div>
-                              <label className="text-sm font-medium text-gray-300">Event Type</label>
-                              <select name="eventType" required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none">
-                                {dj.eventTypes.map(e => <option key={e}>{e}</option>)}
-                              </select>
-                            </div>
-                            <button type="submit" disabled={!!dateError || isSubmitting} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
-                              {isSubmitting ? <LoaderIcon className="w-6 h-6"/> : 'Request a Quote'}
-                            </button>
-                          </form>
-                          <p className="text-xs text-gray-500 text-center mt-4">You won't be charged yet</p>
-                        </>
-                    )}
-                </div>
+                            <label className="text-sm font-medium text-gray-300">Event Type</label>
+                            <select name="eventType" required className="w-full mt-1 bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none">
+                            {dj.eventTypes.map(e => <option key={e}>{e}</option>)}
+                            </select>
+                        </div>
+                        <button type="submit" disabled={!!dateError || isSubmitting} className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-4 rounded-full hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
+                            {isSubmitting ? <LoaderIcon className="w-6 h-6"/> : 'Request a Quote'}
+                        </button>
+                    </form>
+                    <p className="text-xs text-gray-500 text-center mt-4">You won't be charged yet</p>
+                 </div>
               </div>
             </div>
           </div>

@@ -30,9 +30,14 @@ const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
       </div>
       <div className="p-5">
         <h3 className="text-2xl font-bold text-white mb-1 group-hover:text-brand-cyan transition-colors duration-300">{dj.name}</h3>
-        <p className="text-sm text-gray-400 flex items-center mb-3">
-          <MapPinIcon className="w-4 h-4 mr-1" /> {dj.city}
-        </p>
+        <div className="flex justify-between items-center text-sm text-gray-400 mb-3">
+            <p className="flex items-center">
+                <MapPinIcon className="w-4 h-4 mr-1" /> {dj.city}
+            </p>
+            {dj.distance && (
+                 <p className="font-bold text-brand-cyan">{dj.distance.toFixed(1)} km away</p>
+            )}
+        </div>
         <div className="flex flex-wrap gap-2 mb-4">
           {dj.genres.slice(0, 3).map(genre => (
             <span key={genre} className="bg-gray-700 text-gray-300 text-xs font-semibold px-2.5 py-1 rounded-full">{genre}</span>

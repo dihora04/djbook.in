@@ -1,23 +1,33 @@
-
 import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus, Role, SubscriptionTier } from '../types';
-import { MOCK_DJS, MOCK_BOOKINGS, MOCK_USERS, MOCK_CALENDAR_ENTRIES } from '../constants';
+import { MOCK_USERS } from '../constants';
 
 const ARTIFICIAL_DELAY = 500;
 
 // --- FIX: Persist mock database on the window object ---
 // This prevents the data from being reset on every hot-reload in development.
 if (!(window as any).mockDb) {
-  console.log("Initializing mock database...");
+  console.log("Initializing EMPTY mock database...");
   (window as any).mockDb = {
-    djsStore: [...MOCK_DJS],
-    bookingsStore: [...MOCK_BOOKINGS],
-    usersStore: [...MOCK_USERS],
-    calendarEntriesStore: [...MOCK_CALENDAR_ENTRIES],
+    djsStore: [], // Start with an empty array
+    bookingsStore: [], // Start with an empty array
+    usersStore: [...MOCK_USERS], // Keep admin/customer for login
+    calendarEntriesStore: [], // Start with an empty array
   };
 }
 
 const db = (window as any).mockDb;
 
+const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+};
 
 export const loginUser = async (email: string, password_param: string): Promise<User> => {
     console.log(`Attempting to log in user with email: ${email}`);
@@ -35,7 +45,7 @@ export const loginUser = async (email: string, password_param: string): Promise<
     });
 };
 
-export const registerUser = async (name: string, email: string, password_param: string, role: Role): Promise<User> => {
+export const registerUser = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }): Promise<User> => {
     console.log(`Attempting to register new user: ${email} with role: ${role}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
@@ -72,7 +82,9 @@ export const registerUser = async (name: string, email: string, password_param: 
                     profileImage: 'https://picsum.photos/seed/newdj/400/400',
                     coverImage: 'https://picsum.photos/seed/newdj_cover/1600/900',
                     approvalStatus: 'PENDING',
-                    plan: SubscriptionTier.FREE
+                    plan: SubscriptionTier.FREE,
+                    latitude: location?.lat,
+                    longitude: location?.lon,
                 };
                 db.djsStore.push(newDjProfile);
                 newUser.djProfileId = newDjProfile.id;
@@ -96,6 +108,24 @@ export const getDjs = async (): Promise<DJProfile[]> => {
     }, ARTIFICIAL_DELAY);
   });
 };
+
+export const getNearbyDjs = async (lat: number, lon: number, radius: number = 50): Promise<DJProfile[]> => {
+    console.log(`Fetching nearby DJs within ${radius}km of ${lat}, ${lon}`);
+    return new Promise(resolve => {
+        setTimeout(() => {
+            const nearbyDjs = db.djsStore
+                .filter(dj => dj.approvalStatus === 'APPROVED' && dj.latitude && dj.longitude)
+                .map(dj => ({
+                    ...dj,
+                    distance: haversineDistance(lat, lon, dj.latitude!, dj.longitude!),
+                }))
+                .filter(dj => dj.distance <= radius)
+                .sort((a, b) => a.distance - b.distance);
+            resolve(nearbyDjs);
+        }, ARTIFICIAL_DELAY);
+    });
+};
+
 
 export const getAllDjsForAdmin = async (): Promise<DJProfile[]> => {
   console.log('Fetching all DJs for admin...');
@@ -363,8 +393,14 @@ export const approveDj = async (djId: string): Promise<DJProfile> => {
         setTimeout(() => {
             const djIndex = db.djsStore.findIndex(d => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
-            db.djsStore[djIndex].approvalStatus = 'APPROVED';
-            resolve(db.djsStore[djIndex]);
+            
+            const updatedDj = {
+                ...db.djsStore[djIndex],
+                approvalStatus: 'APPROVED' as const
+            };
+            db.djsStore[djIndex] = updatedDj;
+            
+            resolve(updatedDj);
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -375,8 +411,14 @@ export const rejectDj = async (djId: string): Promise<DJProfile> => {
         setTimeout(() => {
             const djIndex = db.djsStore.findIndex(d => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
-            db.djsStore[djIndex].approvalStatus = 'REJECTED';
-            resolve(db.djsStore[djIndex]);
+
+            const updatedDj = {
+                ...db.djsStore[djIndex],
+                approvalStatus: 'REJECTED' as const
+            };
+            db.djsStore[djIndex] = updatedDj;
+            
+            resolve(updatedDj);
         }, ARTIFICIAL_DELAY);
     });
 };

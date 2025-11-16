@@ -80,6 +80,9 @@ export interface DJProfile {
   coverImage: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   plan: SubscriptionTier;
+  latitude?: number;
+  longitude?: number;
+  distance?: number; // For search results
 }
 
 export type View = {
