@@ -25,7 +25,7 @@ const CursorPianoEffect: React.FC = () => {
         if (!ctx) return;
 
         // --- Visual Animation Logic (no changes here) ---
-        const CHARS = ['♪', '♫', '♩', '♬'];
+        const CHARS = ['♪', '♫', '✨', '♩', '♬', '⭐', '💫'];
         let DPR = Math.max(1, window.devicePixelRatio || 1);
 
         const resize = () => {
