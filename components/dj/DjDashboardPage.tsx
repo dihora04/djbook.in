@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, DJProfile, Booking, BookingStatus, SubscriptionTier } from '../../types';
 import { getDjById, getBookingsByDjId, acceptBooking, rejectBooking, upgradeSubscription } from '../../services/mockApiService';
-import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon, CheckCircleIcon } from '../icons';
+import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../icons';
 import ProfileEditSection from './ProfileEditSection';
 import CalendarSection from './CalendarSection';
-// FIX: Import SubscriptionSection to resolve reference error.
 import SubscriptionSection from './SubscriptionSection';
 
 interface DjDashboardPageProps {
@@ -30,6 +29,12 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
         ]);
         setDj(djData || null);
         setBookings(bookingsData);
+
+        // Guide new DJs to complete their profile
+        if (djData && (!djData.city || djData.genres.length === 0)) {
+            setActiveTab('profile');
+        }
+
         setLoading(false);
     };
 
@@ -83,6 +88,15 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
     return (
         <div className="pt-24 bg-brand-dark min-h-screen text-white">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                 {dj.approvalStatus === 'PENDING' && (
+                    <div className="bg-yellow-500/20 border border-yellow-500 text-yellow-300 p-4 rounded-lg mb-8 flex items-center gap-3">
+                        <ClockIcon className="w-6 h-6 flex-shrink-0" />
+                        <div>
+                            <h3 className="font-bold">Your Profile is Pending Approval</h3>
+                            <p className="text-sm">Please complete your profile details to help speed up the review process. You'll be notified via email once approved.</p>
+                        </div>
+                    </div>
+                )}
                 <header className="mb-8">
                     <h1 className="text-4xl font-bold">Welcome back, {dj.name}!</h1>
                     <p className="text-gray-400">Here's what's happening with your profile today.</p>

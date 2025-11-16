@@ -55,18 +55,17 @@ function App() {
       const newUser = await registerUser(name, email, password_param, role, location);
       setAuthModalConfig({ isOpen: false });
 
-      if (newUser.role === Role.DJ) {
-        // Don't log them in, they need approval first.
-        showToast('Thanks! Your profile is submitted for admin approval.', 'success');
-        setView({ page: 'home' });
-        // We return the user but don't set it as currentUser
-        return newUser;
-      }
-      
-      // For customers, log them in immediately.
+      // For both DJs and Customers, log them in immediately.
+      // DJs will see a "Pending Approval" status on their dashboard.
       setCurrentUser(newUser);
-      showToast('Registration successful!', 'success');
-      setView({ page: 'user-dashboard' });
+
+      if (newUser.role === Role.DJ) {
+        showToast('Registration successful! Please complete your profile.', 'success');
+        setView({ page: 'dj-dashboard' });
+      } else { // Customer
+        showToast('Registration successful!', 'success');
+        setView({ page: 'user-dashboard' });
+      }
       return newUser;
 
     } catch (error: any) {
@@ -80,15 +79,16 @@ function App() {
     setView({ page: 'home' });
     showToast('Logged out successfully.', 'success');
   };
+  
+  const openAuthModal = (initialTab: 'login' | 'register' = 'login', initialRole: Role = Role.CUSTOMER) => {
+    setAuthModalConfig({ isOpen: true, initialTab, initialRole });
+  };
+
 
   const authProps = {
     currentUser,
     logout: handleLogout,
-    openLoginModal: () => setAuthModalConfig({ isOpen: true, initialTab: 'login', initialRole: Role.CUSTOMER }),
-  };
-
-  const openRegisterAsDjModal = () => {
-    setAuthModalConfig({ isOpen: true, initialTab: 'register', initialRole: Role.DJ });
+    openLoginModal: () => openAuthModal('login', Role.CUSTOMER),
   };
 
   const renderContent = () => {
@@ -103,7 +103,7 @@ function App() {
         }
         return <SearchPage setView={setView} />;
       case 'pricing':
-        return <PricingPage setView={setView} openRegisterModal={openRegisterAsDjModal} />;
+        return <PricingPage setView={setView} openRegisterModal={() => openAuthModal('register', Role.DJ)} />;
       case 'dj-dashboard':
          if (currentUser?.role === Role.DJ && currentUser.djProfileId) {
           return <DjDashboardPage key={currentUser.id} djId={currentUser.djProfileId} setView={setView} showToast={showToast} />;
