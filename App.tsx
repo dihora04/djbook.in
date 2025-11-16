@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { View, User, Role } from './types';
 import Header from './components/Header';
@@ -12,8 +11,12 @@ import PricingPage from './components/PricingPage';
 import AuthModal from './components/auth/AuthModal';
 import UserDashboardPage from './components/user/UserDashboardPage';
 import { Toast, ToastMessage } from './components/ui/Toast';
-import CursorPianoEffect from './components/ui/CursorPianoEffect';
 import { loginUser, registerUser } from './services/mockApiService';
+import { MusicProvider } from './components/ui/MusicProvider';
+import ParticleCanvas from './components/ui/ParticleCanvas';
+import PianoKeyboard from './components/ui/PianoKeyboard';
+import MusicControls from './components/ui/MusicControls';
+import AmbientMusicToggle from './components/ui/AmbientMusicToggle';
 
 
 function App() {
@@ -113,20 +116,25 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-dark font-sans">
-      <CursorPianoEffect />
-      <Header setView={setView} auth={authProps}/>
-      <main>
-        {renderContent()}
-      </main>
-      <Footer setView={setView}/>
-      {isAuthModalOpen && <AuthModal 
-        closeModal={() => setAuthModalOpen(false)}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-      />}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-    </div>
+    <MusicProvider>
+      <div className="min-h-screen bg-brand-dark font-sans">
+        <ParticleCanvas />
+        <Header setView={setView} auth={authProps}/>
+        <main>
+          {renderContent()}
+        </main>
+        <Footer setView={setView}/>
+        <PianoKeyboard />
+        <MusicControls />
+        <AmbientMusicToggle />
+        {isAuthModalOpen && <AuthModal 
+          closeModal={() => setAuthModalOpen(false)}
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+        />}
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </div>
+    </MusicProvider>
   );
 }
 

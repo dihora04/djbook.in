@@ -1,14 +1,22 @@
-
 import React from 'react';
 import { View } from '../types';
 import { CheckCircleIcon } from './icons';
+import { useMusic } from './ui/MusicProvider';
 
 interface PricingPageProps {
   setView: (view: View) => void;
   openRegisterModal: () => void;
 }
 
-const PricingCard = ({ tier, price, features, primary = false, onGetStarted }: { tier: string, price: string, features: string[], primary?: boolean, onGetStarted: () => void }) => (
+const PricingCard = ({ tier, price, features, primary = false, onGetStarted }: { tier: string, price: string, features: string[], primary?: boolean, onGetStarted: () => void }) => {
+    const { playClickSound } = useMusic();
+    
+    const handleGetStarted = () => {
+        playClickSound();
+        onGetStarted();
+    };
+
+    return (
     <div className={`border rounded-xl p-8 flex flex-col ${primary ? 'bg-brand-surface border-brand-violet shadow-2xl shadow-brand-violet/20' : 'border-gray-700'}`}>
         <h3 className="text-2xl font-bold text-brand-cyan">{tier}</h3>
         <p className="text-4xl font-bold my-4">{price}<span className="text-lg font-normal text-gray-400">/month</span></p>
@@ -21,13 +29,14 @@ const PricingCard = ({ tier, price, features, primary = false, onGetStarted }: {
             ))}
         </ul>
         <button 
-            onClick={onGetStarted}
+            onClick={handleGetStarted}
             className={`mt-auto w-full font-bold py-3 px-6 rounded-full transition-transform duration-300 hover:scale-105 ${primary ? 'bg-gradient-to-r from-brand-violet to-brand-cyan' : 'bg-gray-600 hover:bg-gray-500'}`}
         >
             Get Started
         </button>
     </div>
-);
+    );
+}
 
 
 const PricingPage: React.FC<PricingPageProps> = ({ setView, openRegisterModal }) => {

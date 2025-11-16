@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { DJProfile, View, SubscriptionTier } from '../types';
 import { StarIcon, VerifiedIcon, MapPinIcon } from './icons';
+import { useMusic } from './ui/MusicProvider';
 
 interface DjCardProps {
   dj: DJProfile;
@@ -10,11 +10,13 @@ interface DjCardProps {
 
 const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
   const isVerified = dj.plan === SubscriptionTier.PRO || dj.plan === SubscriptionTier.ELITE;
+  const { playHoverSound } = useMusic();
 
   return (
     <div 
       className="bg-brand-surface rounded-xl overflow-hidden shadow-lg shadow-brand-violet/10 transform hover:-translate-y-2 transition-transform duration-300 cursor-pointer group"
       onClick={() => setView({ page: 'profile', slug: dj.slug })}
+      onMouseEnter={playHoverSound}
     >
       <div className="relative">
         <img className="w-full h-56 object-cover" src={dj.profileImage} alt={dj.name} />

@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { DJProfile, View } from '../types';
 import { getDjs } from '../services/mockApiService';
 import { CITIES, GENRES } from '../constants';
 import DjCard from './DjCard';
 import { LoaderIcon } from './icons';
+import { useMusic } from './ui/MusicProvider';
 
 interface SearchPageProps {
   setView: (view: View) => void;
@@ -18,6 +18,8 @@ const SearchPage: React.FC<SearchPageProps> = ({ setView }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [genreFilter, setGenreFilter] = useState('');
+
+  const { playFocusSound } = useMusic();
 
   useEffect(() => {
     const fetchDjs = async () => {
@@ -63,6 +65,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ setView }) => {
                     placeholder="Search by name..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onFocus={playFocusSound}
                     className="w-full bg-brand-dark text-white placeholder-gray-400 border border-gray-600 rounded-full px-6 py-3 focus:ring-2 focus:ring-brand-cyan focus:outline-none"
                 />
                 <select 

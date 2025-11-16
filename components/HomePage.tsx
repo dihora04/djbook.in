@@ -4,6 +4,7 @@ import { getFeaturedDjs } from '../services/mockApiService';
 import DjCard from './DjCard';
 import { LoaderIcon } from './icons';
 import InteractiveWaveform from './ui/InteractiveWaveform';
+import { useMusic } from './ui/MusicProvider';
 
 interface HomePageProps {
   setView: (view: View) => void;
@@ -12,6 +13,7 @@ interface HomePageProps {
 const HomePage: React.FC<HomePageProps> = ({ setView }) => {
     const [featuredDjs, setFeaturedDjs] = useState<DJProfile[]>([]);
     const [loading, setLoading] = useState(true);
+    const { playFocusSound, playClickSound } = useMusic();
 
     useEffect(() => {
         const fetchDjs = async () => {
@@ -22,6 +24,11 @@ const HomePage: React.FC<HomePageProps> = ({ setView }) => {
         };
         fetchDjs();
     }, []);
+
+    const handleSearchClick = () => {
+        playClickSound();
+        setView({ page: 'search' });
+    }
 
     return (
         <div className="pt-20">
@@ -44,10 +51,11 @@ const HomePage: React.FC<HomePageProps> = ({ setView }) => {
                         <input 
                             type="text" 
                             placeholder="Find DJ by city, genre, or name..." 
+                            onFocus={playFocusSound}
                             className="w-full sm:w-80 bg-white/10 backdrop-blur-sm text-white placeholder-gray-400 border border-gray-600 rounded-full px-6 py-3 focus:ring-2 focus:ring-brand-cyan focus:outline-none"
                         />
                         <button 
-                            onClick={() => setView({ page: 'search' })}
+                            onClick={handleSearchClick}
                             className="bg-gradient-to-r from-brand-violet to-brand-cyan text-white font-bold py-3 px-8 rounded-full hover:scale-105 transition-transform duration-300 shadow-lg shadow-brand-cyan/30"
                         >
                             Search
