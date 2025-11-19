@@ -9,7 +9,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password?: string; // Added for registration/login simulation
+  password?: string;
   role: Role;
   djProfileId?: string;
 }
@@ -38,7 +38,7 @@ export interface Booking {
     customerId: string;
     customerName: string;
     customerEmail?: string;
-    customerPhone?: string;
+    customerPhone?: string; // Added Phone Number
     eventDate: Date;
     eventType: string;
     location: string;
@@ -61,6 +61,7 @@ export interface DJProfile {
   userId: string;
   name: string;
   slug: string;
+  state?: string;
   city: string;
   genres: string[];
   eventTypes: string[];
@@ -71,7 +72,7 @@ export interface DJProfile {
   youtube?: string;
   soundcloud?: string;
   gallery: string[];
-  videos: string[]; // URLs for embedded videos
+  videos: string[];
   verified: boolean;
   featured: boolean;
   avgRating: number;
@@ -82,7 +83,9 @@ export interface DJProfile {
   plan: SubscriptionTier;
   latitude?: number;
   longitude?: number;
-  distance?: number; // For search results
+  distance?: number;
+  cityRank?: number; // Added for Top 3 Badge
+  googleCalendarConnected?: boolean; // New field for Calendar Sync
 }
 
 export type View = {
@@ -100,9 +103,9 @@ export enum CalendarStatus {
 export interface DJCalendarEntry {
   id: string;
   djProfileId: string;
-  date: Date; // Store the full date object
+  date: Date;
   status: CalendarStatus;
-  title?: string;      // e.g., "Wedding", "Day Off", "Platform Booking"
-  note?: string;       // Optional details for manual entries
-  bookingId?: string;  // Link to Booking if platform-initiated
+  title?: string;
+  note?: string;
+  bookingId?: string;
 }

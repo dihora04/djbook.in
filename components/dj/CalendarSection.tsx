@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { DJCalendarEntry, CalendarStatus } from '../../types';
-import { getDjCalendarEntries, updateDjCalendarEntry } from '../../services/mockApiService';
-import { LoaderIcon, ChevronLeftIcon } from '../icons';
+import { getDjCalendarEntries, updateDjCalendarEntry, getDjById, toggleGoogleCalendar } from '../../services/mockApiService';
+import { LoaderIcon, ChevronLeftIcon, GoogleIcon, CheckCircleIcon } from '../icons';
 import { EditDateModal } from './EditDateModal';
 
 interface CalendarSectionProps {
@@ -15,11 +15,21 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ djId }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    
+    // Google Sync State
+    const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const fetchEvents = async () => {
         setIsLoading(true);
-        const entries = await getDjCalendarEntries(djId);
+        const [entries, djProfile] = await Promise.all([
+            getDjCalendarEntries(djId),
+            getDjById(djId)
+        ]);
         setEvents(entries);
+        if (djProfile) {
+            setIsGoogleConnected(!!djProfile.googleCalendarConnected);
+        }
         setIsLoading(false);
     };
 
@@ -41,6 +51,19 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ djId }) => {
         await updateDjCalendarEntry(djId, entry);
         fetchEvents(); // Re-fetch events to show the update
         handleCloseModal();
+    };
+
+    const handleToggleGoogleSync = async () => {
+        setIsSyncing(true);
+        try {
+            const newStatus = await toggleGoogleCalendar(djId);
+            setIsGoogleConnected(newStatus);
+            await fetchEvents(); // Refresh calendar to show synced/removed events
+        } catch (e) {
+            alert("Failed to sync Google Calendar");
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     const renderCalendar = () => {
@@ -91,7 +114,7 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ djId }) => {
                     <span className="font-bold">{day}</span>
                     <div className="flex-grow space-y-1 mt-1">
                         {event && (
-                             <div className={`p-1 rounded-md text-xs font-semibold ${badgeStatusStyles[event.status]}`}>
+                             <div className={`p-1 rounded-md text-xs font-semibold truncate ${badgeStatusStyles[event.status]}`}>
                                 {event.title || event.status}
                             </div>
                         )}
@@ -117,10 +140,12 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ djId }) => {
                     ))}
                     {days}
                 </div>
-                <div className="flex justify-end gap-4 mt-4 text-sm">
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div>Booked</div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500"></div>On Hold</div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Unavailable</div>
+                <div className="flex flex-wrap justify-between items-center mt-4 gap-4">
+                    <div className="flex gap-4 text-sm">
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div>Booked</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500"></div>On Hold</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Unavailable</div>
+                    </div>
                 </div>
             </div>
         );
@@ -128,8 +153,23 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ djId }) => {
 
     return (
         <div>
-            <h2 className="text-2xl font-bold mb-6">Booking Calendar</h2>
-            <p className="text-gray-400 mb-6 -mt-4 text-sm">Click on a date to manually set its status.</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold">Booking Calendar</h2>
+                    <p className="text-gray-400 text-sm">Manage your availability and view bookings.</p>
+                </div>
+                
+                <button 
+                    onClick={handleToggleGoogleSync}
+                    disabled={isSyncing}
+                    className={`flex items-center gap-3 px-4 py-2 rounded-full font-bold text-sm transition-all shadow-lg ${isGoogleConnected ? 'bg-white/10 text-white border border-green-500 hover:bg-red-500/20 hover:border-red-500' : 'bg-white text-black hover:bg-brand-cyan'}`}
+                >
+                    {isSyncing ? <LoaderIcon className="w-5 h-5" /> : <GoogleIcon className="w-5 h-5" />}
+                    {isSyncing ? 'Syncing...' : isGoogleConnected ? 'Connected (Click to Disconnect)' : 'Sync Google Calendar'}
+                    {isGoogleConnected && !isSyncing && <CheckCircleIcon className="w-4 h-4 text-green-400" />}
+                </button>
+            </div>
+
             {isLoading ? (
                 <div className="flex justify-center items-center h-64"><LoaderIcon className="w-12 h-12 text-brand-cyan" /></div>
             ) : (

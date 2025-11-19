@@ -1,9 +1,9 @@
+
 import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus, Role, SubscriptionTier } from '../types';
 import { MOCK_USERS, MOCK_DJS, MOCK_BOOKINGS, MOCK_CALENDAR_ENTRIES } from '../constants';
 
-const ARTIFICIAL_DELAY = 300; // Snappy, fast response for 2050 feel
+const ARTIFICIAL_DELAY = 300; 
 
-// --- FIX: Persist mock database on the window object ---
 if (!(window as any).mockDb) {
   console.log("Initializing mock database with data...");
   (window as any).mockDb = {
@@ -17,7 +17,7 @@ if (!(window as any).mockDb) {
 const db = (window as any).mockDb;
 
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Radius of the Earth in km
+    const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a =
@@ -25,14 +25,41 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distance in km
+    return R * c;
+};
+
+// --- CITY WISE RANKING LOGIC ---
+const calculateDjRankings = (djs: DJProfile[]): DJProfile[] => {
+    // 1. Group DJs by city
+    const djsByCity: Record<string, DJProfile[]> = {};
+    djs.forEach(dj => {
+        if (dj.city && dj.approvalStatus === 'APPROVED') {
+            if (!djsByCity[dj.city]) djsByCity[dj.city] = [];
+            djsByCity[dj.city].push(dj);
+        }
+    });
+
+    // 2. Sort each city group by Rating (High to Low), then by Review Count
+    Object.keys(djsByCity).forEach(city => {
+        djsByCity[city].sort((a, b) => {
+            if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating;
+            return b.reviews.length - a.reviews.length;
+        });
+        
+        // 3. Assign rank to top 3
+        djsByCity[city].forEach((dj, index) => {
+            dj.cityRank = index + 1;
+        });
+    });
+    
+    return djs;
 };
 
 export const loginUser = async (email: string, password_param: string): Promise<User> => {
     console.log(`Attempting to log in user with email: ${email}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const user = db.usersStore.find(u => u.email.toLowerCase() === email.toLowerCase());
+            const user = db.usersStore.find((u: User) => u.email.toLowerCase() === email.toLowerCase());
             if (user && user.password === password_param) {
                 console.log("Login successful for:", user.name);
                 resolve(user);
@@ -44,11 +71,11 @@ export const loginUser = async (email: string, password_param: string): Promise<
     });
 };
 
-export const registerUser = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }, plan: SubscriptionTier = SubscriptionTier.FREE): Promise<User> => {
+export const registerUser = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }, plan: SubscriptionTier = SubscriptionTier.FREE, state?: string, city?: string): Promise<User> => {
     console.log(`Attempting to register new user: ${email} with role: ${role} and plan: ${plan}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (db.usersStore.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+            if (db.usersStore.some((u: User) => u.email.toLowerCase() === email.toLowerCase())) {
                 console.log("Registration failed: Email already exists");
                 return reject(new Error('A user with this email already exists.'));
             }
@@ -68,9 +95,10 @@ export const registerUser = async (name: string, email: string, password_param: 
                 const newDjProfile: DJProfile = {
                     id: `dj-${timestamp}-${randomId}`,
                     userId: newUser.id,
-                    name: name, // Default to user name
+                    name: name,
                     slug: name.toLowerCase().replace(/\s+/g, '-') + `-${timestamp}`,
-                    city: '',
+                    city: city || '',
+                    state: state || '',
                     genres: [],
                     eventTypes: [],
                     minFee: 0,
@@ -87,6 +115,7 @@ export const registerUser = async (name: string, email: string, password_param: 
                     plan: plan,
                     latitude: location?.lat,
                     longitude: location?.lon,
+                    googleCalendarConnected: false,
                 };
                 db.djsStore.push(newDjProfile);
                 newUser.djProfileId = newDjProfile.id;
@@ -95,7 +124,6 @@ export const registerUser = async (name: string, email: string, password_param: 
 
             db.usersStore.push(newUser);
             console.log("Registration successful for new user:", newUser);
-            console.log("Current DJs in store:", db.djsStore.length);
             resolve(newUser);
 
         }, ARTIFICIAL_DELAY);
@@ -105,7 +133,10 @@ export const registerUser = async (name: string, email: string, password_param: 
 export const getDjs = async (): Promise<DJProfile[]> => {
   return new Promise(resolve => {
     setTimeout(() => {
-      resolve(db.djsStore.filter(dj => dj.approvalStatus === 'APPROVED'));
+      let djs = db.djsStore.filter((dj: DJProfile) => dj.approvalStatus === 'APPROVED');
+      // Apply ranking logic
+      djs = calculateDjRankings(djs);
+      resolve(djs);
     }, ARTIFICIAL_DELAY);
   });
 };
@@ -113,19 +144,23 @@ export const getDjs = async (): Promise<DJProfile[]> => {
 export const getNearbyDjs = async (lat: number, lon: number, radius: number = 50): Promise<DJProfile[]> => {
     return new Promise(resolve => {
         setTimeout(() => {
-            const nearbyDjs = db.djsStore
-                .filter(dj => dj.approvalStatus === 'APPROVED' && dj.latitude && dj.longitude)
+            // 1. Get all approved DJs first to calculate global city ranks
+            const allApproved = calculateDjRankings(db.djsStore.filter((d: DJProfile) => d.approvalStatus === 'APPROVED'));
+            
+            // 2. Filter for nearby
+            let nearbyDjs = allApproved
+                .filter(dj => dj.latitude && dj.longitude)
                 .map(dj => ({
                     ...dj,
                     distance: haversineDistance(lat, lon, dj.latitude!, dj.longitude!),
                 }))
                 .filter(dj => dj.distance <= radius)
                 .sort((a, b) => a.distance - b.distance);
+            
             resolve(nearbyDjs);
         }, ARTIFICIAL_DELAY);
     });
 };
-
 
 export const getAllDjsForAdmin = async (): Promise<DJProfile[]> => {
   return new Promise(resolve => {
@@ -135,11 +170,11 @@ export const getAllDjsForAdmin = async (): Promise<DJProfile[]> => {
   });
 };
 
-
 export const getFeaturedDjs = async (): Promise<DJProfile[]> => {
     return new Promise(resolve => {
       setTimeout(() => {
-        resolve(db.djsStore.filter(dj => dj.featured && dj.approvalStatus === 'APPROVED'));
+        let allApproved = calculateDjRankings(db.djsStore.filter((d: DJProfile) => d.approvalStatus === 'APPROVED'));
+        resolve(allApproved.filter(dj => dj.featured));
       }, ARTIFICIAL_DELAY);
     });
 };
@@ -147,9 +182,12 @@ export const getFeaturedDjs = async (): Promise<DJProfile[]> => {
 export const getDjBySlug = async (slug: string): Promise<DJProfile | undefined> => {
   return new Promise(resolve => {
     setTimeout(() => {
-      const dj = db.djsStore.find(dj => dj.slug === slug);
+      const dj = db.djsStore.find((dj: DJProfile) => dj.slug === slug);
       if (dj && dj.approvalStatus === 'APPROVED') {
-        resolve(dj);
+          // Calculate ranks for context
+          const allApproved = calculateDjRankings(db.djsStore.filter((d: DJProfile) => d.approvalStatus === 'APPROVED'));
+          const rankedDj = allApproved.find(d => d.id === dj.id);
+          resolve(rankedDj || dj);
       } else {
         resolve(undefined);
       }
@@ -160,7 +198,7 @@ export const getDjBySlug = async (slug: string): Promise<DJProfile | undefined> 
 export const getDjById = async (id: string): Promise<DJProfile | undefined> => {
   return new Promise(resolve => {
     setTimeout(() => {
-      const dj = db.djsStore.find(dj => dj.id === id);
+      const dj = db.djsStore.find((dj: DJProfile) => dj.id === id);
       resolve(dj);
     }, ARTIFICIAL_DELAY);
   });
@@ -169,7 +207,7 @@ export const getDjById = async (id: string): Promise<DJProfile | undefined> => {
 export const getBookingsByDjId = async (djId: string): Promise<Booking[]> => {
     return new Promise(resolve => {
         setTimeout(() => {
-            resolve(db.bookingsStore.filter(booking => booking.djId === djId));
+            resolve(db.bookingsStore.filter((booking: Booking) => booking.djId === djId));
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -185,8 +223,8 @@ export const getAllBookings = async (): Promise<Booking[]> => {
 export const getBookingsByCustomerId = async (customerId: string): Promise<Booking[]> => {
     return new Promise(resolve => {
         setTimeout(() => {
-            const bookings = db.bookingsStore.filter(booking => booking.customerId === customerId).map(b => {
-                const dj = db.djsStore.find(d => d.id === b.djId);
+            const bookings = db.bookingsStore.filter((booking: Booking) => booking.customerId === customerId).map((b: Booking) => {
+                const dj = db.djsStore.find((d: DJProfile) => d.id === b.djId);
                 return {...b, djName: dj?.name || 'Unknown DJ', djProfileImage: dj?.profileImage || ''};
             });
             resolve(bookings);
@@ -197,7 +235,7 @@ export const getBookingsByCustomerId = async (customerId: string): Promise<Booki
 export const getDjCalendarEntries = async (djId: string): Promise<DJCalendarEntry[]> => {
     return new Promise(resolve => {
         setTimeout(() => {
-            resolve(db.calendarEntriesStore.filter(entry => entry.djProfileId === djId));
+            resolve(db.calendarEntriesStore.filter((entry: DJCalendarEntry) => entry.djProfileId === djId));
         }, ARTIFICIAL_DELAY);
     });
 };
@@ -206,8 +244,8 @@ export const getPublicDjAvailability = async (djId: string): Promise<Pick<DJCale
     return new Promise(resolve => {
         setTimeout(() => {
             const entries = db.calendarEntriesStore
-                .filter(entry => entry.djProfileId === djId)
-                .map(({ date, status }) => ({ date, status }));
+                .filter((entry: DJCalendarEntry) => entry.djProfileId === djId)
+                .map(({ date, status }: DJCalendarEntry) => ({ date, status }));
             resolve(entries);
         }, ARTIFICIAL_DELAY);
     });
@@ -219,7 +257,7 @@ export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCale
             const dateToFind = entryData.date.setHours(0,0,0,0);
             let updatedEntry: DJCalendarEntry | undefined;
 
-            const existingEntryIndex = db.calendarEntriesStore.findIndex(entry => 
+            const existingEntryIndex = db.calendarEntriesStore.findIndex((entry: DJCalendarEntry) => 
                 entry.djProfileId === djId && entry.date.setHours(0,0,0,0) === dateToFind
             );
 
@@ -245,11 +283,58 @@ export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCale
     });
 };
 
+// --- GOOGLE CALENDAR SIMULATION ---
+export const toggleGoogleCalendar = async (djId: string): Promise<boolean> => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const djIndex = db.djsStore.findIndex((d: DJProfile) => d.id === djId);
+            if (djIndex === -1) return reject(new Error("DJ not found"));
+
+            const currentStatus = !!db.djsStore[djIndex].googleCalendarConnected;
+            const newStatus = !currentStatus;
+
+            // Update Profile
+            db.djsStore[djIndex].googleCalendarConnected = newStatus;
+
+            // Simulate fetching/removing events
+            if (newStatus) {
+                // Simulating adding Google Events
+                const today = new Date();
+                const sampleEvents = [
+                    { offset: 2, title: 'Google: Studio Session' },
+                    { offset: 5, title: 'Google: Personal' },
+                    { offset: 12, title: 'Google: Vacation' }
+                ];
+
+                sampleEvents.forEach((evt, idx) => {
+                    const date = new Date(today);
+                    date.setDate(today.getDate() + evt.offset);
+                    
+                    db.calendarEntriesStore.push({
+                        id: `google-event-${Date.now()}-${idx}`,
+                        djProfileId: djId,
+                        date: date,
+                        status: CalendarStatus.UNAVAILABLE, // Block the date
+                        title: evt.title,
+                        note: 'Synced from Google Calendar'
+                    });
+                });
+            } else {
+                // Simulating removing Google Events
+                db.calendarEntriesStore = db.calendarEntriesStore.filter((entry: DJCalendarEntry) => 
+                    entry.djProfileId !== djId || !entry.title?.startsWith('Google:')
+                );
+            }
+
+            resolve(newStatus);
+        }, 1000); // Longer delay to simulate API handshake
+    });
+};
 
 export const acceptBooking = async (bookingId: string, djId: string): Promise<Booking> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const bookingIndex = db.bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
+            const bookingIndex = db.bookingsStore.findIndex((b: Booking) => b.id === bookingId && b.djId === djId);
             if (bookingIndex === -1) {
                 return reject(new Error('Booking not found'));
             }
@@ -258,7 +343,7 @@ export const acceptBooking = async (bookingId: string, djId: string): Promise<Bo
             db.bookingsStore[bookingIndex] = updatedBooking;
 
             const dateToFind = updatedBooking.eventDate.setHours(0,0,0,0);
-            const calendarEntryIndex = db.calendarEntriesStore.findIndex(entry => 
+            const calendarEntryIndex = db.calendarEntriesStore.findIndex((entry: DJCalendarEntry) => 
                 entry.djProfileId === djId && entry.date.setHours(0,0,0,0) === dateToFind
             );
 
@@ -285,7 +370,7 @@ export const acceptBooking = async (bookingId: string, djId: string): Promise<Bo
 export const rejectBooking = async (bookingId: string, djId: string): Promise<Booking> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const bookingIndex = db.bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
+            const bookingIndex = db.bookingsStore.findIndex((b: Booking) => b.id === bookingId && b.djId === djId);
             if (bookingIndex === -1) {
                 return reject(new Error('Booking not found'));
             }
@@ -294,7 +379,7 @@ export const rejectBooking = async (bookingId: string, djId: string): Promise<Bo
             db.bookingsStore[bookingIndex] = updatedBooking;
 
             const dateToFind = updatedBooking.eventDate.setHours(0,0,0,0);
-            const calendarEntryIndex = db.calendarEntriesStore.findIndex(entry => 
+            const calendarEntryIndex = db.calendarEntriesStore.findIndex((entry: DJCalendarEntry) => 
                 entry.djProfileId === djId && 
                 entry.date.setHours(0,0,0,0) === dateToFind &&
                 entry.bookingId === bookingId
@@ -313,14 +398,14 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'dj
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const dateToCheck = bookingData.eventDate.toISOString().split('T')[0];
-            const djCalendar = db.calendarEntriesStore.filter(e => e.djProfileId === bookingData.djId);
-            const isUnavailable = djCalendar.some(e => e.date.toISOString().split('T')[0] === dateToCheck && e.status !== CalendarStatus.AVAILABLE);
+            const djCalendar = db.calendarEntriesStore.filter((e: DJCalendarEntry) => e.djProfileId === bookingData.djId);
+            const isUnavailable = djCalendar.some((e: DJCalendarEntry) => e.date.toISOString().split('T')[0] === dateToCheck && e.status !== CalendarStatus.AVAILABLE);
 
             if (isUnavailable) {
                 return reject(new Error("The selected date is no longer available."));
             }
 
-            const dj = db.djsStore.find(d => d.id === bookingData.djId);
+            const dj = db.djsStore.find((d: DJProfile) => d.id === bookingData.djId);
             if (!dj) return reject(new Error("DJ not found"));
 
             const newBooking: Booking = {
@@ -349,7 +434,7 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'dj
 export const updateDjProfile = async (djId: string, profileData: Partial<DJProfile>): Promise<DJProfile> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = db.djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex((d: DJProfile) => d.id === djId);
             if (djIndex === -1) {
                 return reject(new Error("DJ profile not found"));
             }
@@ -362,7 +447,7 @@ export const updateDjProfile = async (djId: string, profileData: Partial<DJProfi
 export const approveDj = async (djId: string): Promise<DJProfile> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = db.djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex((d: DJProfile) => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
             
             const updatedDj = {
@@ -379,7 +464,7 @@ export const approveDj = async (djId: string): Promise<DJProfile> => {
 export const rejectDj = async (djId: string): Promise<DJProfile> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = db.djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex((d: DJProfile) => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
 
             const updatedDj = {
@@ -396,7 +481,7 @@ export const rejectDj = async (djId: string): Promise<DJProfile> => {
 export const upgradeSubscription = async (djId: string, plan: SubscriptionTier): Promise<DJProfile> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const djIndex = db.djsStore.findIndex(d => d.id === djId);
+            const djIndex = db.djsStore.findIndex((d: DJProfile) => d.id === djId);
             if (djIndex === -1) return reject(new Error("DJ not found"));
             db.djsStore[djIndex].plan = plan;
             if (plan === SubscriptionTier.PRO || plan === SubscriptionTier.ELITE) {

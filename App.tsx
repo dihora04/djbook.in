@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { View, User, Role, SubscriptionTier } from './types';
 import Header from './components/Header';
@@ -51,9 +53,9 @@ function App() {
     }
   };
 
-  const handleRegister = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }, plan?: SubscriptionTier): Promise<User> => {
+  const handleRegister = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }, plan?: SubscriptionTier, state?: string, city?: string): Promise<User> => {
      try {
-      const newUser = await registerUser(name, email, password_param, role, location, plan);
+      const newUser = await registerUser(name, email, password_param, role, location, plan, state, city);
       setAuthModalConfig({ isOpen: false });
       setCurrentUser(newUser);
 

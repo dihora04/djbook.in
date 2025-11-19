@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Role, SubscriptionTier } from '../../types';
 import { LoaderIcon, MapPinIcon, CheckCircleIcon } from '../icons';
+import { INDIAN_LOCATIONS } from '../../constants';
 
 interface AuthModalProps {
     closeModal: () => void;
     onLogin: (email: string, pass: string) => Promise<any>;
-    onRegister: (name: string, email: string, pass: string, role: Role, location?: { lat: number, lon: number }, plan?: SubscriptionTier) => Promise<any>;
+    onRegister: (name: string, email: string, pass: string, role: Role, location?: { lat: number, lon: number }, plan?: SubscriptionTier, state?: string, city?: string) => Promise<any>;
     initialTab?: 'login' | 'register';
     initialRole?: Role;
     initialPlan?: SubscriptionTier;
@@ -26,8 +28,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister, 
     const [regEmail, setRegEmail] = useState('');
     const [regPassword, setRegPassword] = useState('');
     const [regRole, setRegRole] = useState<Role>(initialRole);
+    const [regState, setRegState] = useState('');
+    const [regCity, setRegCity] = useState('');
     const [regLocation, setRegLocation] = useState<{lat: number, lon: number} | null>(null);
     const [isLocating, setIsLocating] = useState(false);
+    
+    // Sync props to state whenever they change (Double safeguard for navigation)
+    useEffect(() => {
+        if (initialTab) setActiveTab(initialTab);
+        if (initialRole) setRegRole(initialRole);
+    }, [initialTab, initialRole]);
+
+    const availableDistricts = regState ? (INDIAN_LOCATIONS[regState] || []) : [];
 
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,9 +59,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister, 
             alert('Password must be at least 6 characters long.');
             return;
         }
+        if (regRole === Role.DJ && (!regState || !regCity)) {
+            alert('Please select your State and District.');
+            return;
+        }
+
         setIsLoading(true);
         try {
-            await onRegister(regName, regEmail, regPassword, regRole, regLocation || undefined, initialPlan);
+            await onRegister(regName, regEmail, regPassword, regRole, regLocation || undefined, initialPlan, regState, regCity);
         } catch (error) {
            // Toast handled in App
         } finally {
@@ -164,20 +181,40 @@ const AuthModal: React.FC<AuthModalProps> = ({ closeModal, onLogin, onRegister, 
                                        <button type="button" onClick={() => setRegRole(Role.DJ)} className={`p-3 rounded-lg border transition-all font-semibold text-sm ${regRole === Role.DJ ? 'border-brand-cyan bg-brand-cyan/10 text-brand-cyan' : 'border-gray-700 text-gray-400 hover:border-gray-500'}`}>Artist (DJ)</button>
                                     </div>
                                 </div>
+                                
                                 {regRole === Role.DJ && (
-                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Base Location</label>
-                                        {regLocation ? (
-                                            <div className="flex items-center gap-2 text-green-400 bg-green-500/10 border border-green-500/20 p-3 rounded-lg">
-                                                <CheckCircleIcon className="w-5 h-5"/>
-                                                <span className="text-sm font-semibold">Coordinates Locked</span>
+                                    <div className="space-y-4 animate-fadeIn">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">State</label>
+                                                <select value={regState} onChange={e => { setRegState(e.target.value); setRegCity(''); }} required className="w-full bg-white/5 text-white border border-glass-border rounded-lg px-2 py-3 text-xs focus:border-brand-cyan focus:ring-1 focus:ring-brand-cyan focus:outline-none">
+                                                    <option value="">Select State</option>
+                                                    {Object.keys(INDIAN_LOCATIONS).sort().map(state => <option key={state} value={state}>{state}</option>)}
+                                                </select>
                                             </div>
-                                        ) : (
-                                            <button type="button" onClick={handleGetLocation} disabled={isLocating} className="w-full flex justify-center items-center gap-2 p-3 rounded-lg border border-gray-700 hover:border-brand-cyan hover:text-brand-cyan transition-colors text-sm font-medium disabled:opacity-50">
-                                                {isLocating ? <LoaderIcon className="w-4 h-4" /> : <MapPinIcon className="w-4 h-4" />}
-                                                {isLocating ? 'Acquiring Satellite Lock...' : 'Auto-Detect Location'}
-                                            </button>
-                                        )}
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">District</label>
+                                                <select value={regCity} onChange={e => setRegCity(e.target.value)} required disabled={!regState} className="w-full bg-white/5 text-white border border-glass-border rounded-lg px-2 py-3 text-xs focus:border-brand-cyan focus:ring-1 focus:ring-brand-cyan focus:outline-none disabled:opacity-50">
+                                                    <option value="">Select District</option>
+                                                    {availableDistricts.sort().map(city => <option key={city} value={city}>{city}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Base Location (GPS)</label>
+                                            {regLocation ? (
+                                                <div className="flex items-center gap-2 text-green-400 bg-green-500/10 border border-green-500/20 p-3 rounded-lg">
+                                                    <CheckCircleIcon className="w-5 h-5"/>
+                                                    <span className="text-sm font-semibold">Coordinates Locked</span>
+                                                </div>
+                                            ) : (
+                                                <button type="button" onClick={handleGetLocation} disabled={isLocating} className="w-full flex justify-center items-center gap-2 p-3 rounded-lg border border-gray-700 hover:border-brand-cyan hover:text-brand-cyan transition-colors text-sm font-medium disabled:opacity-50">
+                                                    {isLocating ? <LoaderIcon className="w-4 h-4" /> : <MapPinIcon className="w-4 h-4" />}
+                                                    {isLocating ? 'Acquiring Satellite Lock...' : 'Auto-Detect Location'}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>

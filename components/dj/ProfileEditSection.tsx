@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { DJProfile } from '../../types';
 import { LoaderIcon, MapPinIcon } from '../icons';
-import { CITIES, GENRES, EVENT_TYPES } from '../../constants';
+import { INDIAN_LOCATIONS, GENRES, EVENT_TYPES } from '../../constants';
 import { updateDjProfile } from '../../services/mockApiService';
 
 
@@ -17,9 +17,20 @@ const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, show
     const [isSaving, setIsSaving] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
     
+    const availableDistricts = formData.state ? (INDIAN_LOCATIONS[formData.state] || []) : [];
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: name === 'minFee' ? parseInt(value) : value }));
+    };
+    
+    const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newState = e.target.value;
+        setFormData(prev => ({
+            ...prev,
+            state: newState,
+            city: '' // Reset city when state changes
+        }));
     };
 
     const handleMultiSelectChange = (field: 'genres' | 'eventTypes', value: string) => {
@@ -112,27 +123,39 @@ const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, show
                  <div className="bg-brand-dark p-6 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputField label="Stage Name" name="name" value={formData.name} onChange={handleChange} placeholder="e.g., DJ Rohan" />
                     <InputField label="Phone Number" name="phone" value={formData.phone} onChange={handleChange} placeholder="e.g., 9099110411" />
+                    
+                    {/* State Selection */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">City</label>
-                        <select name="city" value={formData.city} onChange={handleChange} className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none">
-                            <option value="">Select City</option>
-                            {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        <label className="block text-sm font-medium text-gray-300 mb-1">State</label>
+                        <select name="state" value={formData.state} onChange={handleStateChange} className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none">
+                            <option value="">Select State</option>
+                            {Object.keys(INDIAN_LOCATIONS).sort().map(state => <option key={state} value={state}>{state}</option>)}
                         </select>
                     </div>
+
+                    {/* City/District Selection */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">District / City</label>
+                        <select name="city" value={formData.city} onChange={handleChange} disabled={!formData.state} className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">{formData.state ? 'Select District' : 'Select State First'}</option>
+                            {availableDistricts.sort().map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+
                      <InputField label="Minimum Fee (per event)" name="minFee" value={formData.minFee} onChange={handleChange} placeholder="e.g., 25000" type="number" />
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-300 mb-1">Bio</label>
                         <textarea name="bio" value={formData.bio} onChange={handleChange} rows={4} placeholder="Tell us about your style, experience, and what makes you a great DJ." className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none"></textarea>
                     </div>
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Your Location</label>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Your Location (GPS)</label>
                          <button type="button" onClick={handleGetLocation} disabled={isLocating} className="w-full flex justify-center items-center gap-2 p-3 rounded-lg border-2 border-gray-600 hover:border-brand-cyan transition-colors disabled:opacity-50">
                             {isLocating ? <LoaderIcon className="w-5 h-5" /> : <MapPinIcon className="w-5 h-5" />}
-                            {isLocating ? 'Getting Location...' : 'Use My Current Location'}
+                            {isLocating ? 'Getting Location...' : 'Update My Exact Location'}
                         </button>
                         {formData.latitude && formData.longitude && (
                             <p className="text-xs text-gray-400 mt-2 text-center">
-                                Current Location: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                                Current Coordinates: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
                             </p>
                         )}
                     </div>
