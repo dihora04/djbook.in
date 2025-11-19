@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { View, User, Role } from './types';
+import { View, User, Role, SubscriptionTier } from './types';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './components/HomePage';
@@ -19,6 +18,8 @@ interface AuthModalConfig {
   isOpen: boolean;
   initialTab?: 'login' | 'register';
   initialRole?: Role;
+  initialPlan?: SubscriptionTier;
+  timestamp?: number; // CRITICAL: Ensures component remounts on every open
 }
 
 function App() {
@@ -37,33 +38,30 @@ function App() {
       const user = await loginUser(email, password_param);
       setCurrentUser(user);
       setAuthModalConfig({ isOpen: false });
-      showToast('Login successful!', 'success');
-      // Redirect based on role
+      showToast('Authentication verified.', 'success');
+      
       if (user.role === Role.DJ) setView({ page: 'dj-dashboard' });
       else if (user.role === Role.ADMIN) setView({ page: 'admin-dashboard' });
       else if (user.role === Role.CUSTOMER) setView({ page: 'user-dashboard' });
       else setView({ page: 'home' });
       return user;
     } catch (error: any) {
-      showToast(error.message || 'Login failed.', 'error');
+      showToast(error.message || 'Authentication failed.', 'error');
       throw error;
     }
   };
 
-  const handleRegister = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }): Promise<User> => {
+  const handleRegister = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }, plan?: SubscriptionTier): Promise<User> => {
      try {
-      const newUser = await registerUser(name, email, password_param, role, location);
+      const newUser = await registerUser(name, email, password_param, role, location, plan);
       setAuthModalConfig({ isOpen: false });
-
-      // For both DJs and Customers, log them in immediately.
-      // DJs will see a "Pending Approval" status on their dashboard.
       setCurrentUser(newUser);
 
       if (newUser.role === Role.DJ) {
-        showToast('Registration successful! Please complete your profile.', 'success');
+        showToast('Artist profile created successfully.', 'success');
         setView({ page: 'dj-dashboard' });
-      } else { // Customer
-        showToast('Registration successful!', 'success');
+      } else {
+        showToast('User account active.', 'success');
         setView({ page: 'user-dashboard' });
       }
       return newUser;
@@ -77,13 +75,19 @@ function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setView({ page: 'home' });
-    showToast('Logged out successfully.', 'success');
+    showToast('Session terminated.', 'success');
   };
   
-  const openAuthModal = (initialTab: 'login' | 'register' = 'login', initialRole: Role = Role.CUSTOMER) => {
-    setAuthModalConfig({ isOpen: true, initialTab, initialRole });
+  // This function forces a hard reset of the modal by updating the timestamp key
+  const openAuthModal = (initialTab: 'login' | 'register' = 'login', initialRole: Role = Role.CUSTOMER, plan?: SubscriptionTier) => {
+    setAuthModalConfig({ 
+        isOpen: true, 
+        initialTab, 
+        initialRole, 
+        initialPlan: plan, 
+        timestamp: Date.now() 
+    });
   };
-
 
   const authProps = {
     currentUser,
@@ -103,25 +107,24 @@ function App() {
         }
         return <SearchPage setView={setView} />;
       case 'pricing':
-        return <PricingPage setView={setView} openRegisterModal={() => openAuthModal('register', Role.DJ)} />;
+        return <PricingPage setView={setView} openRegisterModal={(plan) => openAuthModal('register', Role.DJ, plan)} />;
       case 'dj-dashboard':
          if (currentUser?.role === Role.DJ && currentUser.djProfileId) {
           return <DjDashboardPage key={currentUser.id} djId={currentUser.djProfileId} setView={setView} showToast={showToast} />;
         }
-        // Simple role-based access control
-        showToast('You must be logged in as a DJ to view this page.', 'error');
+        showToast('Access Denied. Artist credentials required.', 'error');
         return <HomePage setView={setView} />;
       case 'admin-dashboard':
         if (currentUser?.role === Role.ADMIN) {
             return <AdminDashboardPage key={currentUser.id} setView={setView} showToast={showToast} />;
         }
-        showToast('You do not have permission to view this page.', 'error');
+        showToast('Access Denied. Admin credentials required.', 'error');
         return <HomePage setView={setView} />;
       case 'user-dashboard':
         if (currentUser?.role === Role.CUSTOMER) {
             return <UserDashboardPage key={currentUser.id} currentUser={currentUser} setView={setView} />;
         }
-         showToast('You must be logged in as a customer to view this page.', 'error');
+         showToast('Login required to view bookings.', 'error');
         return <HomePage setView={setView} />;
       default:
         return <HomePage setView={setView} />;
@@ -129,20 +132,26 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-dark font-sans">
+    <div className="min-h-screen font-sans text-white selection:bg-brand-cyan selection:text-black">
       <CursorPianoEffect />
       <Header setView={setView} auth={authProps}/>
       <main>
         {renderContent()}
       </main>
       <Footer setView={setView}/>
-      {authModalConfig.isOpen && <AuthModal 
-        closeModal={() => setAuthModalConfig({ isOpen: false })}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        initialTab={authModalConfig.initialTab}
-        initialRole={authModalConfig.initialRole}
-      />}
+      
+      {authModalConfig.isOpen && (
+          <AuthModal 
+            key={authModalConfig.timestamp} // This ensures a fresh instance every time
+            closeModal={() => setAuthModalConfig({ ...authModalConfig, isOpen: false })}
+            onLogin={handleLogin}
+            onRegister={handleRegister}
+            initialTab={authModalConfig.initialTab}
+            initialRole={authModalConfig.initialRole}
+            initialPlan={authModalConfig.initialPlan}
+          />
+      )}
+      
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );

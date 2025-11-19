@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, DJProfile, Booking, BookingStatus, SubscriptionTier } from '../../types';
 import { getDjById, getBookingsByDjId, acceptBooking, rejectBooking, upgradeSubscription } from '../../services/mockApiService';
 import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../icons';
@@ -21,58 +21,43 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<Tab>('leads');
 
-    const fetchData = async () => {
-        setLoading(true);
-        const [djData, bookingsData] = await Promise.all([
-            getDjById(djId),
-            getBookingsByDjId(djId)
-        ]);
-        setDj(djData || null);
-        setBookings(bookingsData);
-
-        // Guide new DJs to complete their profile
-        if (djData && (!djData.city || djData.genres.length === 0)) {
-            setActiveTab('profile');
+    const fetchData = useCallback(async () => {
+        try {
+            const [djData, bookingsData] = await Promise.all([
+                getDjById(djId),
+                getBookingsByDjId(djId)
+            ]);
+            
+            if (djData) {
+                setDj(djData);
+                setBookings(bookingsData);
+                
+                // Guide new DJs to complete their profile
+                if ((!djData.city || !djData.genres || djData.genres.length === 0) && activeTab !== 'profile') {
+                    setActiveTab('profile');
+                    showToast("Welcome! Please complete your profile to get started.", "success");
+                }
+            } else {
+                showToast("DJ Profile data not found.", "error");
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("Error fetching dashboard data.", "error");
         }
-
-        setLoading(false);
-    };
+    }, [djId, activeTab, showToast]); // dependencies
 
     useEffect(() => {
-        fetchData();
-    }, [djId]);
-
-    const handleBookingUpdate = (updatedBooking: Booking) => {
-        setBookings(currentBookings => 
-            currentBookings.map(b => b.id === updatedBooking.id ? updatedBooking : b)
-        );
-        // also refetch dj data in case calendar needs update
-        fetchData();
-    };
-
-    if (loading) {
-        return <div className="min-h-screen flex items-center justify-center bg-brand-dark"><LoaderIcon className="w-16 h-16 text-brand-cyan" /></div>;
-    }
-
-    if (!dj) {
-        return <div className="min-h-screen flex items-center justify-center bg-brand-dark text-white">DJ profile not found.</div>;
-    }
-
-    const renderTabContent = () => {
-        switch (activeTab) {
-            case 'leads':
-                return <LeadsSection djId={djId} initialBookings={bookings} onBookingUpdate={handleBookingUpdate} showToast={showToast} />;
-            case 'calendar':
-                return <CalendarSection bookings={bookings} djId={djId} />;
-            case 'analytics':
-                 return <AnalyticsSection />;
-            case 'profile':
-                return <ProfileEditSection dj={dj} setDj={setDj} showToast={showToast} />;
-             case 'subscription':
-                return <SubscriptionSection dj={dj} onPlanChange={setDj} showToast={showToast} />;
-            default:
-                return null;
+        const init = async () => {
+            setLoading(true);
+            await fetchData();
+            setLoading(false);
         }
+        init();
+    }, [djId]); // Run once on mount for djId change
+
+    // Handler for updates from sub-components to avoid full refetching
+    const handleBookingUpdate = (updatedBooking: Booking) => {
+        setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
     };
 
     const TabButton = ({ tab, icon, label }: { tab: Tab, icon: React.ReactNode, label: string }) => (
@@ -85,6 +70,19 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
         </button>
     );
 
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-brand-dark"><LoaderIcon className="w-16 h-16 text-brand-cyan" /></div>;
+    }
+
+    if (!dj) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-brand-dark text-white">
+                <h2 className="text-2xl font-bold mb-4">Unable to load DJ Profile</h2>
+                <button onClick={() => window.location.reload()} className="bg-brand-cyan text-brand-dark px-6 py-2 rounded-full font-bold">Reload Page</button>
+            </div>
+        );
+    }
+
     return (
         <div className="pt-24 bg-brand-dark min-h-screen text-white">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -93,13 +91,13 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
                         <ClockIcon className="w-6 h-6 flex-shrink-0" />
                         <div>
                             <h3 className="font-bold">Your Profile is Pending Approval</h3>
-                            <p className="text-sm">Please complete your profile details to help speed up the review process. You'll be notified via email once approved.</p>
+                            <p className="text-sm">Please complete your profile details. Approvals typically take 24 hours.</p>
                         </div>
                     </div>
                 )}
                 <header className="mb-8">
                     <h1 className="text-4xl font-bold">Welcome back, {dj.name}!</h1>
-                    <p className="text-gray-400">Here's what's happening with your profile today.</p>
+                    <p className="text-gray-400">Dashboard</p>
                 </header>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1">
@@ -112,7 +110,18 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
                         </div>
                     </aside>
                     <main className="lg:col-span-3 bg-brand-surface p-6 rounded-xl min-h-[60vh]">
-                        {renderTabContent()}
+                        {activeTab === 'leads' && (
+                            <LeadsSection 
+                                djId={djId} 
+                                bookings={bookings} 
+                                onBookingUpdate={handleBookingUpdate} 
+                                showToast={showToast} 
+                            />
+                        )}
+                        {activeTab === 'calendar' && <CalendarSection djId={djId} />}
+                        {activeTab === 'analytics' && <AnalyticsSection />}
+                        {activeTab === 'profile' && <ProfileEditSection dj={dj} setDj={setDj} showToast={showToast} />}
+                        {activeTab === 'subscription' && <SubscriptionSection dj={dj} onPlanChange={setDj} showToast={showToast} />}
                     </main>
                 </div>
             </div>
@@ -123,43 +132,23 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
 
 interface LeadsSectionProps {
     djId: string;
-    initialBookings: Booking[];
+    bookings: Booking[];
     onBookingUpdate: (booking: Booking) => void;
     showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
-const LeadsSection: React.FC<LeadsSectionProps> = ({ djId, initialBookings, onBookingUpdate, showToast }) => {
-    const [bookings, setBookings] = useState(initialBookings);
+const LeadsSection: React.FC<LeadsSectionProps> = ({ djId, bookings, onBookingUpdate, showToast }) => {
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
-    useEffect(() => {
-        setBookings(initialBookings);
-    }, [initialBookings]);
-
-
-    const handleAccept = async (bookingId: string) => {
+    const handleAction = async (bookingId: string, type: 'accept' | 'reject') => {
         setLoadingAction(bookingId);
         try {
-            const updatedBooking = await acceptBooking(bookingId, djId);
+            const action = type === 'accept' ? acceptBooking : rejectBooking;
+            const updatedBooking = await action(bookingId, djId);
             onBookingUpdate(updatedBooking);
-            showToast('Booking accepted and calendar updated!', 'success');
+            showToast(type === 'accept' ? 'Booking accepted!' : 'Booking rejected.', 'success');
         } catch (error) {
-            console.error('Failed to accept booking:', error);
-            showToast('Failed to accept booking.', 'error');
-        } finally {
-            setLoadingAction(null);
-        }
-    };
-
-    const handleReject = async (bookingId: string) => {
-        setLoadingAction(bookingId);
-        try {
-            const updatedBooking = await rejectBooking(bookingId, djId);
-            onBookingUpdate(updatedBooking);
-            showToast('Booking rejected.', 'success');
-        } catch (error) {
-            console.error('Failed to reject booking:', error);
-            showToast('Failed to reject booking.', 'error');
+            showToast('Action failed.', 'error');
         } finally {
             setLoadingAction(null);
         }
@@ -193,18 +182,18 @@ const LeadsSection: React.FC<LeadsSectionProps> = ({ djId, initialBookings, onBo
                                 {booking.status === 'PENDING' && (
                                     <>
                                         <button 
-                                            onClick={() => handleAccept(booking.id)} 
-                                            disabled={loadingAction === booking.id}
-                                            className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-3 rounded-full transition-colors w-full flex-1 justify-center disabled:opacity-50"
+                                            onClick={() => handleAction(booking.id, 'accept')} 
+                                            disabled={!!loadingAction}
+                                            className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-3 rounded-full transition-colors w-20 flex justify-center disabled:opacity-50"
                                         >
-                                           {loadingAction === booking.id ? <LoaderIcon className="w-4 h-4 mx-auto"/> : 'Accept'}
+                                           {loadingAction === booking.id ? <LoaderIcon className="w-4 h-4"/> : 'Accept'}
                                         </button>
                                         <button 
-                                            onClick={() => handleReject(booking.id)}
-                                            disabled={loadingAction === booking.id}
-                                            className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-full transition-colors w-full flex-1 justify-center disabled:opacity-50"
+                                            onClick={() => handleAction(booking.id, 'reject')}
+                                            disabled={!!loadingAction}
+                                            className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-full transition-colors w-20 flex justify-center disabled:opacity-50"
                                         >
-                                            {loadingAction === booking.id ? <LoaderIcon className="w-4 h-4 mx-auto"/> : 'Reject'}
+                                            {loadingAction === booking.id ? <LoaderIcon className="w-4 h-4"/> : 'Reject'}
                                         </button>
                                     </>
                                 )}
@@ -233,13 +222,9 @@ const AnalyticsSection = () => {
         <div>
             <h2 className="text-2xl font-bold mb-6">Your Analytics</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                 <StatCard value="1,204" label="Profile Views (Last 30 Days)" icon={<UserIcon className="w-8 h-8"/>} />
-                 <StatCard value="12" label="Booking Inquiries" icon={<LeadsIcon className="w-8 h-8"/>} />
-                 <StatCard value="4.9" label="Average Rating" icon={<StarIcon className="w-8 h-8"/>} />
-            </div>
-            <div className="mt-8 bg-brand-dark p-6 rounded-lg">
-                <h3 className="font-semibold mb-4">Performance Chart</h3>
-                <p className="text-gray-400">A chart showing views and leads over time would appear here.</p>
+                 <StatCard value="1,204" label="Profile Views" icon={<UserIcon className="w-8 h-8"/>} />
+                 <StatCard value="12" label="Inquiries" icon={<LeadsIcon className="w-8 h-8"/>} />
+                 <StatCard value="4.9" label="Rating" icon={<StarIcon className="w-8 h-8"/>} />
             </div>
         </div>
     );

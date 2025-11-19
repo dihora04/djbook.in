@@ -1,17 +1,16 @@
 import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus, Role, SubscriptionTier } from '../types';
-import { MOCK_USERS } from '../constants';
+import { MOCK_USERS, MOCK_DJS, MOCK_BOOKINGS, MOCK_CALENDAR_ENTRIES } from '../constants';
 
-const ARTIFICIAL_DELAY = 500;
+const ARTIFICIAL_DELAY = 300; // Snappy, fast response for 2050 feel
 
 // --- FIX: Persist mock database on the window object ---
-// This prevents the data from being reset on every hot-reload in development.
 if (!(window as any).mockDb) {
-  console.log("Initializing EMPTY mock database...");
+  console.log("Initializing mock database with data...");
   (window as any).mockDb = {
-    djsStore: [], // Start with an empty array
-    bookingsStore: [], // Start with an empty array
-    usersStore: [...MOCK_USERS], // Keep admin/customer for login
-    calendarEntriesStore: [], // Start with an empty array
+    djsStore: [...MOCK_DJS],
+    bookingsStore: [...MOCK_BOOKINGS],
+    usersStore: [...MOCK_USERS],
+    calendarEntriesStore: [...MOCK_CALENDAR_ENTRIES],
   };
 }
 
@@ -45,8 +44,8 @@ export const loginUser = async (email: string, password_param: string): Promise<
     });
 };
 
-export const registerUser = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }): Promise<User> => {
-    console.log(`Attempting to register new user: ${email} with role: ${role}`);
+export const registerUser = async (name: string, email: string, password_param: string, role: Role, location?: { lat: number, lon: number }, plan: SubscriptionTier = SubscriptionTier.FREE): Promise<User> => {
+    console.log(`Attempting to register new user: ${email} with role: ${role} and plan: ${plan}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             if (db.usersStore.some(u => u.email.toLowerCase() === email.toLowerCase())) {
@@ -54,8 +53,11 @@ export const registerUser = async (name: string, email: string, password_param: 
                 return reject(new Error('A user with this email already exists.'));
             }
 
+            const timestamp = Date.now();
+            const randomId = Math.floor(Math.random() * 10000);
+            
             const newUser: User = {
-                id: `user-${Date.now()}`,
+                id: `user-${timestamp}-${randomId}`,
                 name,
                 email,
                 password: password_param,
@@ -64,10 +66,10 @@ export const registerUser = async (name: string, email: string, password_param: 
 
             if (role === Role.DJ) {
                 const newDjProfile: DJProfile = {
-                    id: `dj-${Date.now()}`,
+                    id: `dj-${timestamp}-${randomId}`,
                     userId: newUser.id,
                     name: name, // Default to user name
-                    slug: name.toLowerCase().replace(/\s+/g, '-') + `-${Date.now()}`,
+                    slug: name.toLowerCase().replace(/\s+/g, '-') + `-${timestamp}`,
                     city: '',
                     genres: [],
                     eventTypes: [],
@@ -75,14 +77,14 @@ export const registerUser = async (name: string, email: string, password_param: 
                     bio: '',
                     gallery: [],
                     videos: [],
-                    verified: false,
-                    featured: false,
+                    verified: plan === SubscriptionTier.PRO || plan === SubscriptionTier.ELITE,
+                    featured: plan === SubscriptionTier.PRO || plan === SubscriptionTier.ELITE,
                     avgRating: 0,
                     reviews: [],
                     profileImage: 'https://picsum.photos/seed/newdj/400/400',
                     coverImage: 'https://picsum.photos/seed/newdj_cover/1600/900',
                     approvalStatus: 'PENDING',
-                    plan: SubscriptionTier.FREE,
+                    plan: plan,
                     latitude: location?.lat,
                     longitude: location?.lon,
                 };
@@ -101,7 +103,6 @@ export const registerUser = async (name: string, email: string, password_param: 
 };
 
 export const getDjs = async (): Promise<DJProfile[]> => {
-  console.log('Fetching all approved DJs...');
   return new Promise(resolve => {
     setTimeout(() => {
       resolve(db.djsStore.filter(dj => dj.approvalStatus === 'APPROVED'));
@@ -110,7 +111,6 @@ export const getDjs = async (): Promise<DJProfile[]> => {
 };
 
 export const getNearbyDjs = async (lat: number, lon: number, radius: number = 50): Promise<DJProfile[]> => {
-    console.log(`Fetching nearby DJs within ${radius}km of ${lat}, ${lon}`);
     return new Promise(resolve => {
         setTimeout(() => {
             const nearbyDjs = db.djsStore
@@ -128,17 +128,15 @@ export const getNearbyDjs = async (lat: number, lon: number, radius: number = 50
 
 
 export const getAllDjsForAdmin = async (): Promise<DJProfile[]> => {
-  console.log('Fetching all DJs for admin...');
   return new Promise(resolve => {
     setTimeout(() => {
-      resolve(db.djsStore);
+      resolve([...db.djsStore]);
     }, ARTIFICIAL_DELAY);
   });
 };
 
 
 export const getFeaturedDjs = async (): Promise<DJProfile[]> => {
-    console.log('Fetching featured DJs...');
     return new Promise(resolve => {
       setTimeout(() => {
         resolve(db.djsStore.filter(dj => dj.featured && dj.approvalStatus === 'APPROVED'));
@@ -146,18 +144,13 @@ export const getFeaturedDjs = async (): Promise<DJProfile[]> => {
     });
 };
 
-// --- FIX: Prevent pending profiles from being viewed publicly ---
 export const getDjBySlug = async (slug: string): Promise<DJProfile | undefined> => {
-  console.log(`Fetching DJ with slug: ${slug}`);
   return new Promise(resolve => {
     setTimeout(() => {
       const dj = db.djsStore.find(dj => dj.slug === slug);
-      // Only return APPROVED DJs on the public profile page.
       if (dj && dj.approvalStatus === 'APPROVED') {
         resolve(dj);
       } else {
-        // Return undefined if DJ is not found, pending, or rejected.
-        // The UI will show a "DJ Not Found" message.
         resolve(undefined);
       }
     }, ARTIFICIAL_DELAY);
@@ -165,17 +158,15 @@ export const getDjBySlug = async (slug: string): Promise<DJProfile | undefined> 
 };
 
 export const getDjById = async (id: string): Promise<DJProfile | undefined> => {
-  console.log(`Fetching DJ with id: ${id}`);
   return new Promise(resolve => {
     setTimeout(() => {
       const dj = db.djsStore.find(dj => dj.id === id);
-      resolve(dj); // This is used by the dashboard, so it's okay to return any status.
+      resolve(dj);
     }, ARTIFICIAL_DELAY);
   });
 };
 
 export const getBookingsByDjId = async (djId: string): Promise<Booking[]> => {
-    console.log(`Fetching bookings for DJ: ${djId}`);
     return new Promise(resolve => {
         setTimeout(() => {
             resolve(db.bookingsStore.filter(booking => booking.djId === djId));
@@ -184,7 +175,6 @@ export const getBookingsByDjId = async (djId: string): Promise<Booking[]> => {
 };
 
 export const getAllBookings = async (): Promise<Booking[]> => {
-    console.log("Fetching all bookings for admin...");
      return new Promise(resolve => {
         setTimeout(() => {
             resolve(db.bookingsStore);
@@ -193,7 +183,6 @@ export const getAllBookings = async (): Promise<Booking[]> => {
 }
 
 export const getBookingsByCustomerId = async (customerId: string): Promise<Booking[]> => {
-    console.log(`Fetching bookings for customer: ${customerId}`);
     return new Promise(resolve => {
         setTimeout(() => {
             const bookings = db.bookingsStore.filter(booking => booking.customerId === customerId).map(b => {
@@ -206,7 +195,6 @@ export const getBookingsByCustomerId = async (customerId: string): Promise<Booki
 };
 
 export const getDjCalendarEntries = async (djId: string): Promise<DJCalendarEntry[]> => {
-    console.log(`Fetching calendar entries for DJ: ${djId}`);
     return new Promise(resolve => {
         setTimeout(() => {
             resolve(db.calendarEntriesStore.filter(entry => entry.djProfileId === djId));
@@ -215,7 +203,6 @@ export const getDjCalendarEntries = async (djId: string): Promise<DJCalendarEntr
 };
 
 export const getPublicDjAvailability = async (djId: string): Promise<Pick<DJCalendarEntry, 'date' | 'status'>[]> => {
-    console.log(`Fetching public availability for DJ: ${djId}`);
     return new Promise(resolve => {
         setTimeout(() => {
             const entries = db.calendarEntriesStore
@@ -227,7 +214,6 @@ export const getPublicDjAvailability = async (djId: string): Promise<Pick<DJCale
 };
 
 export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCalendarEntry, 'id' | 'djProfileId'>): Promise<DJCalendarEntry> => {
-    console.log(`Updating calendar for DJ ${djId} on date ${entryData.date.toDateString()}`);
     return new Promise(resolve => {
         setTimeout(() => {
             const dateToFind = entryData.date.setHours(0,0,0,0);
@@ -241,11 +227,9 @@ export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCale
                 if (entryData.status === CalendarStatus.AVAILABLE) {
                     updatedEntry = db.calendarEntriesStore[existingEntryIndex];
                     db.calendarEntriesStore.splice(existingEntryIndex, 1);
-                     console.log('Removed entry:', updatedEntry);
                 } else {
                     db.calendarEntriesStore[existingEntryIndex] = { ...db.calendarEntriesStore[existingEntryIndex], ...entryData };
                     updatedEntry = db.calendarEntriesStore[existingEntryIndex];
-                     console.log('Updated entry:', updatedEntry);
                 }
             } else if (entryData.status !== CalendarStatus.AVAILABLE) {
                 updatedEntry = {
@@ -254,7 +238,6 @@ export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCale
                     djProfileId: djId,
                 };
                 db.calendarEntriesStore.push(updatedEntry);
-                 console.log('Created new entry:', updatedEntry);
             }
             
             resolve(updatedEntry || { ...entryData, id: 'temp-removed', djProfileId: djId });
@@ -264,7 +247,6 @@ export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCale
 
 
 export const acceptBooking = async (bookingId: string, djId: string): Promise<Booking> => {
-    console.log(`Accepting booking ${bookingId} for DJ ${djId}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const bookingIndex = db.bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
@@ -295,14 +277,12 @@ export const acceptBooking = async (bookingId: string, djId: string): Promise<Bo
                 });
             }
             
-            console.log("Updated Calendar:", db.calendarEntriesStore);
             resolve(updatedBooking);
         }, ARTIFICIAL_DELAY);
     });
 };
 
 export const rejectBooking = async (bookingId: string, djId: string): Promise<Booking> => {
-    console.log(`Rejecting booking ${bookingId} for DJ ${djId}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const bookingIndex = db.bookingsStore.findIndex(b => b.id === bookingId && b.djId === djId);
@@ -324,23 +304,19 @@ export const rejectBooking = async (bookingId: string, djId: string): Promise<Bo
                 db.calendarEntriesStore.splice(calendarEntryIndex, 1);
             }
             
-            console.log("Updated Calendar:", db.calendarEntriesStore);
             resolve(updatedBooking);
         }, ARTIFICIAL_DELAY);
     });
 };
 
 export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'djName'|'djProfileImage'>): Promise<Booking> => {
-    console.log("Creating new booking for DJ:", bookingData.djId);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            // Check availability
             const dateToCheck = bookingData.eventDate.toISOString().split('T')[0];
             const djCalendar = db.calendarEntriesStore.filter(e => e.djProfileId === bookingData.djId);
             const isUnavailable = djCalendar.some(e => e.date.toISOString().split('T')[0] === dateToCheck && e.status !== CalendarStatus.AVAILABLE);
 
             if (isUnavailable) {
-                console.error("Booking creation failed: Date is not available.");
                 return reject(new Error("The selected date is no longer available."));
             }
 
@@ -356,7 +332,6 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'dj
             };
             db.bookingsStore.push(newBooking);
 
-            // Add a HOLD entry to the calendar
             db.calendarEntriesStore.push({
                 id: `cal-entry-${Date.now()}`,
                 djProfileId: bookingData.djId,
@@ -366,14 +341,12 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'dj
                 bookingId: newBooking.id,
             });
             
-            console.log("New booking created:", newBooking);
             resolve(newBooking);
         }, ARTIFICIAL_DELAY);
     });
 };
 
 export const updateDjProfile = async (djId: string, profileData: Partial<DJProfile>): Promise<DJProfile> => {
-    console.log("Updating profile for DJ:", djId);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const djIndex = db.djsStore.findIndex(d => d.id === djId);
@@ -381,14 +354,12 @@ export const updateDjProfile = async (djId: string, profileData: Partial<DJProfi
                 return reject(new Error("DJ profile not found"));
             }
             db.djsStore[djIndex] = { ...db.djsStore[djIndex], ...profileData };
-            console.log("Profile updated successfully");
             resolve(db.djsStore[djIndex]);
         }, ARTIFICIAL_DELAY);
     });
 };
 
 export const approveDj = async (djId: string): Promise<DJProfile> => {
-    console.log("Approving DJ:", djId);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const djIndex = db.djsStore.findIndex(d => d.id === djId);
@@ -406,7 +377,6 @@ export const approveDj = async (djId: string): Promise<DJProfile> => {
 };
 
 export const rejectDj = async (djId: string): Promise<DJProfile> => {
-    console.log("Rejecting DJ:", djId);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const djIndex = db.djsStore.findIndex(d => d.id === djId);
@@ -424,7 +394,6 @@ export const rejectDj = async (djId: string): Promise<DJProfile> => {
 };
 
 export const upgradeSubscription = async (djId: string, plan: SubscriptionTier): Promise<DJProfile> => {
-    console.log(`Upgrading subscription for DJ ${djId} to ${plan}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const djIndex = db.djsStore.findIndex(d => d.id === djId);
