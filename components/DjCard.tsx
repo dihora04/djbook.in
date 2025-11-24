@@ -1,11 +1,10 @@
-
 import React from 'react';
 import { DJProfile, View, SubscriptionTier } from '../types';
 import { StarIcon, VerifiedIcon, MapPinIcon } from './icons';
 
 interface DjCardProps {
   dj: DJProfile;
-  setView: (view: View) => void;
+  setView: (view: View) => void; 
 }
 
 const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
@@ -38,7 +37,7 @@ const DjCard: React.FC<DjCardProps> = ({ dj, setView }) => {
 
   return (
     <div 
-      className="group relative bg-brand-surface border border-white/5 rounded-2xl overflow-hidden hover:border-brand-cyan/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(0,242,234,0.15)] flex flex-col h-full"
+      className="group relative bg-brand-surface border border-white/5 rounded-2xl overflow-hidden hover:border-brand-cyan/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(0,242,234,0.15)] flex flex-col h-full cursor-pointer"
       onClick={() => setView({ page: 'profile', slug: dj.slug })}
     >
       {/* Image Section */}

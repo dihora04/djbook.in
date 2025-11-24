@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { DJProfile, View, DJCalendarEntry, CalendarStatus, User } from '../types';
+import { DJProfile, DJCalendarEntry, CalendarStatus, User, View } from '../types';
 import { getDjBySlug, getPublicDjAvailability, createBooking } from '../services/mockApiService';
 import { StarIcon, VerifiedIcon, MapPinIcon, ChevronLeftIcon, LoaderIcon, MusicIcon, CalendarIcon, CheckCircleIcon, PhoneIcon, UserIcon, XCircleIcon } from './icons';
 
@@ -31,6 +30,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
 
   useEffect(() => {
     const fetchDjData = async () => {
+      if (!slug) return;
       setLoading(true);
       const fetchedDj = await getDjBySlug(slug);
       if (fetchedDj) {
@@ -102,11 +102,11 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
         const newBooking = await createBooking({
             djId: dj.id,
             customerId: currentUser.id,
-            customerName: customerName, // Use the name from the modal
+            customerName: customerName, 
             customerPhone: customerPhone,
             eventDate: new Date(selectedDate),
             eventType: selectedEventType,
-            location: dj.city, // simplified for demo
+            location: dj.city, 
             notes: 'Booking request via platform.'
         });
         setIsBookingModalOpen(false);
@@ -304,7 +304,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
               <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsBookingModalOpen(false)}></div>
               
               <div className="relative bg-brand-surface border border-glass-border rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-                    {/* Header */}
                     <div className="bg-gradient-to-r from-brand-violet/20 to-brand-cyan/20 p-6 border-b border-white/10 flex justify-between items-start">
                         <div>
                             <h2 className="text-2xl font-display font-bold text-white">Complete Request</h2>
@@ -316,7 +315,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
                     </div>
 
                     <div className="p-6 space-y-6">
-                        {/* 1. Date Confirmation Box */}
                         <div className="bg-brand-dark/50 border border-brand-cyan/30 rounded-xl p-4 flex flex-col items-center text-center">
                             <p className="text-gray-400 text-xs uppercase tracking-widest mb-1">Selected Event Date</p>
                             <div className="text-3xl font-bold text-white font-mono tracking-tight">
@@ -329,7 +327,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
                         </div>
 
                         <form onSubmit={handleFinalBookingSubmit} className="space-y-4">
-                             {/* 2. Contact Details */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Your Name</label>
@@ -365,7 +362,6 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
                                 </div>
                             </div>
 
-                            {/* 3. Explicit Confirmation Checkbox */}
                             <div className="pt-2">
                                 <label className="flex items-start gap-3 cursor-pointer group p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/10">
                                     <div className="relative flex items-center">

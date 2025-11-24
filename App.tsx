@@ -1,7 +1,6 @@
 
-
 import React, { useState } from 'react';
-import { View, User, Role, SubscriptionTier } from './types';
+import { User, Role, SubscriptionTier, View } from './types';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './components/HomePage';
@@ -12,16 +11,23 @@ import AdminDashboardPage from './components/admin/AdminDashboardPage';
 import PricingPage from './components/PricingPage';
 import AuthModal from './components/auth/AuthModal';
 import UserDashboardPage from './components/user/UserDashboardPage';
+import CityPage from './components/CityPage';
+import BlogList from './components/blog/BlogList';
+import BlogPostPage from './components/blog/BlogPost';
 import { Toast, ToastMessage } from './components/ui/Toast';
 import CursorPianoEffect from './components/ui/CursorPianoEffect';
 import { loginUser, registerUser } from './services/mockApiService';
+
+// NEW: Import Sound System
+import { SoundProvider } from './contexts/SoundContext';
+import SoundToggle from './components/ui/SoundToggle';
 
 interface AuthModalConfig {
   isOpen: boolean;
   initialTab?: 'login' | 'register';
   initialRole?: Role;
   initialPlan?: SubscriptionTier;
-  timestamp?: number; // CRITICAL: Ensures component remounts on every open
+  timestamp?: number;
 }
 
 function App() {
@@ -80,7 +86,6 @@ function App() {
     showToast('Session terminated.', 'success');
   };
   
-  // This function forces a hard reset of the modal by updating the timestamp key
   const openAuthModal = (initialTab: 'login' | 'register' = 'login', initialRole: Role = Role.CUSTOMER, plan?: SubscriptionTier) => {
     setAuthModalConfig({ 
         isOpen: true, 
@@ -95,67 +100,67 @@ function App() {
     currentUser,
     logout: handleLogout,
     openLoginModal: () => openAuthModal('login', Role.CUSTOMER),
-  };
-
-  const renderContent = () => {
-    switch (view.page) {
-      case 'home':
-        return <HomePage setView={setView} />;
-      case 'search':
-        return <SearchPage setView={setView} />;
-      case 'profile':
-        if (view.slug) {
-          return <DjProfilePage slug={view.slug} setView={setView} currentUser={currentUser} showToast={showToast} openLoginModal={authProps.openLoginModal}/>;
-        }
-        return <SearchPage setView={setView} />;
-      case 'pricing':
-        return <PricingPage setView={setView} openRegisterModal={(plan) => openAuthModal('register', Role.DJ, plan)} />;
-      case 'dj-dashboard':
-         if (currentUser?.role === Role.DJ && currentUser.djProfileId) {
-          return <DjDashboardPage key={currentUser.id} djId={currentUser.djProfileId} setView={setView} showToast={showToast} />;
-        }
-        showToast('Access Denied. Artist credentials required.', 'error');
-        return <HomePage setView={setView} />;
-      case 'admin-dashboard':
-        if (currentUser?.role === Role.ADMIN) {
-            return <AdminDashboardPage key={currentUser.id} setView={setView} showToast={showToast} />;
-        }
-        showToast('Access Denied. Admin credentials required.', 'error');
-        return <HomePage setView={setView} />;
-      case 'user-dashboard':
-        if (currentUser?.role === Role.CUSTOMER) {
-            return <UserDashboardPage key={currentUser.id} currentUser={currentUser} setView={setView} />;
-        }
-         showToast('Login required to view bookings.', 'error');
-        return <HomePage setView={setView} />;
-      default:
-        return <HomePage setView={setView} />;
-    }
+    setView,
   };
 
   return (
-    <div className="min-h-screen font-sans text-white selection:bg-brand-cyan selection:text-black">
-      <CursorPianoEffect />
-      <Header setView={setView} auth={authProps}/>
-      <main>
-        {renderContent()}
-      </main>
-      <Footer setView={setView}/>
-      
-      {authModalConfig.isOpen && (
-          <AuthModal 
-            key={authModalConfig.timestamp} // This ensures a fresh instance every time
-            closeModal={() => setAuthModalConfig({ ...authModalConfig, isOpen: false })}
-            onLogin={handleLogin}
-            onRegister={handleRegister}
-            initialTab={authModalConfig.initialTab}
-            initialRole={authModalConfig.initialRole}
-            initialPlan={authModalConfig.initialPlan}
-          />
-      )}
-      
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-    </div>
+    <SoundProvider>
+      <div className="min-h-screen font-sans text-white selection:bg-brand-cyan selection:text-black">
+        {/* Only render the Piano Effect on the Home Page */}
+        {view.page === 'home' && <CursorPianoEffect />}
+        
+        {/* Global Sound Toggle */}
+        <SoundToggle />
+
+        <Header auth={authProps} setView={setView} />
+        <main>
+          {view.page === 'home' && <HomePage setView={setView} />}
+          {view.page === 'search' && <SearchPage setView={setView} />}
+          {view.page === 'pricing' && <PricingPage setView={setView} openRegisterModal={(plan) => openAuthModal('register', Role.DJ, plan)} />}
+          {view.page === 'city' && view.cityParam && <CityPage city={view.cityParam} setView={setView} />}
+          {view.page === 'blog' && <BlogList setView={setView} />}
+          {view.page === 'blog-post' && view.slug && <BlogPostPage slug={view.slug} setView={setView} />}
+          
+          {/* Dashboard Routes */}
+          {view.page === 'dj-dashboard' && (
+              currentUser?.role === Role.DJ && currentUser.djProfileId ? 
+              <DjDashboardPage key={currentUser.id} djId={currentUser.djProfileId} setView={setView} showToast={showToast} /> : 
+              <HomePage setView={setView} /> 
+          )}
+          {view.page === 'user-dashboard' && (
+              currentUser?.role === Role.CUSTOMER ?
+              <UserDashboardPage key={currentUser.id} currentUser={currentUser} setView={setView} /> :
+              <HomePage setView={setView} />
+          )}
+          {view.page === 'admin-dashboard' && (
+              currentUser?.role === Role.ADMIN ? 
+              <AdminDashboardPage key={currentUser.id} setView={setView} showToast={showToast} /> : 
+              <HomePage setView={setView} /> 
+          )}
+
+          {/* Dynamic Profile Route */}
+          {view.page === 'profile' && view.slug && (
+              <DjProfilePage slug={view.slug} setView={setView} currentUser={currentUser} showToast={showToast} openLoginModal={authProps.openLoginModal} />
+          )}
+
+        </main>
+        <Footer setView={setView} />
+        
+        {authModalConfig.isOpen && (
+            <AuthModal 
+              key={authModalConfig.timestamp}
+              closeModal={() => setAuthModalConfig({ ...authModalConfig, isOpen: false })}
+              onLogin={handleLogin}
+              onRegister={handleRegister}
+              initialTab={authModalConfig.initialTab}
+              initialRole={authModalConfig.initialRole}
+              initialPlan={authModalConfig.initialPlan}
+            />
+        )}
+        
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </div>
+    </SoundProvider>
   );
 }
 

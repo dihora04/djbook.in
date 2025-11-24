@@ -1,89 +1,53 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DJBook - Future of Booking</title>
+    <title>DJBook - Modern DJ Booking Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              'brand-dark': '#050507',       /* Deep Space Black */
-              'brand-surface': '#0f1115',    /* Obsidian */
-              'brand-violet': '#7c3aed',     /* Electric Violet */
-              'brand-cyan': '#00f2ea',       /* Neon Cyan */
-              'glass-border': 'rgba(255, 255, 255, 0.08)',
+              'brand-dark': '#121212',
+              'brand-surface': '#1e1e1e',
+              'brand-violet': '#9b5cff',
+              'brand-cyan': '#00E5FF',
             },
             fontFamily: {
-              sans: ['Space Grotesk', 'sans-serif'],
-              display: ['Orbitron', 'sans-serif'],
+              sans: ['Poppins', 'sans-serif'],
             },
-            boxShadow: {
-              'neon': '0 0 20px rgba(0, 242, 234, 0.3)',
-              'neon-violet': '0 0 20px rgba(124, 58, 237, 0.3)',
-            }
           }
         }
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700&display=swap');
-      
       body {
-        background-color: #050507;
-        color: #ffffff;
-        overflow-x: hidden;
+        cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><text y="20" font-size="20">🎵</text></svg>') 12 12, auto !important;
       }
-      
-      /* Futuristic Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #050507;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #333;
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #00f2ea;
-      }
-
-      /* 2050 Background Grid */
-      .grid-bg {
+      .bg-magic{
         position: fixed;
         top: 0;
         left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: -1;
-        background-image: 
-          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-        background-size: 40px 40px;
-        mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
-        pointer-events: none;
+        right: 0;
+        bottom: 0;
+        z-index: 0;
+        background: radial-gradient(circle at 20% 50%, rgba(155, 92, 255, 0.2) 0%, transparent 40%),
+                   radial-gradient(circle at 80% 50%, rgba(0, 229, 255, 0.2) 0%, transparent 40%);
+        animation: breathe 8s ease-in-out infinite;
       }
-      
-      .glow-orb {
-        position: fixed;
-        border-radius: 50%;
-        filter: blur(100px);
-        opacity: 0.3;
-        z-index: -1;
-        animation: float 10s infinite ease-in-out;
-      }
-
-      @keyframes float {
-        0%, 100% { transform: translate(0, 0); }
-        50% { transform: translate(20px, -20px); }
+      @keyframes breathe {
+        0%, 100% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.05); }
       }
     </style>
-    <script type="importmap">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Oswald:wght@500&display=swap" rel="stylesheet">
+  <script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.2.0",
@@ -92,11 +56,10 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div class="grid-bg"></div>
-    <div class="glow-orb" style="top: -10%; left: -10%; width: 600px; height: 600px; background: #7c3aed;"></div>
-    <div class="glow-orb" style="bottom: -10%; right: -10%; width: 500px; height: 500px; background: #00f2ea;"></div>
+  <body class="bg-brand-dark text-white">
+    <div class="bg-magic"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

@@ -1,8 +1,45 @@
 
-import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus, Role, SubscriptionTier } from '../types';
+import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus, Role, SubscriptionTier, BlogPost } from '../types';
 import { MOCK_USERS, MOCK_DJS, MOCK_BOOKINGS, MOCK_CALENDAR_ENTRIES } from '../constants';
 
 const ARTIFICIAL_DELAY = 300; 
+
+// --- MOCK BLOG DATA ---
+const MOCK_BLOG_POSTS: BlogPost[] = [
+    {
+        id: '1',
+        slug: 'how-to-hire-wedding-dj-india',
+        title: 'The Ultimate Guide to Hiring a Wedding DJ in India (2025)',
+        excerpt: 'Don\'t let a bad DJ ruin your Sangeet. Here are the top 5 things to look for when booking a wedding DJ.',
+        content: 'Planning an Indian wedding is chaotic. The music shouldn\'t be. In this guide, we break down pricing, equipment checks, and how to verify a DJ\'s experience...',
+        author: 'DJBook Team',
+        date: 'October 15, 2024',
+        coverImage: 'https://picsum.photos/seed/blog1/800/400',
+        tags: ['Wedding', 'Tips', 'Guide']
+    },
+    {
+        id: '2',
+        slug: 'cost-of-dj-in-mumbai',
+        title: 'How Much Does a DJ Cost in Mumbai? Price Breakdown',
+        excerpt: 'From club gigs to private parties, understand the standard rates for professional DJs in Mumbai.',
+        content: 'Mumbai is the entertainment capital. Prices range from ₹15,000 for beginners to ₹2,00,000+ for celebrity DJs...',
+        author: 'Rahul Verma',
+        date: 'November 2, 2024',
+        coverImage: 'https://picsum.photos/seed/blog2/800/400',
+        tags: ['Pricing', 'Mumbai', 'Corporate']
+    },
+    {
+        id: '3',
+        slug: 'top-songs-wedding-2025',
+        title: 'Top 20 Bollywood Songs for Your Baraat in 2025',
+        excerpt: 'Update your playlist with these high-energy tracks that are guaranteed to get everyone dancing.',
+        content: 'No Baraat is complete without the classics, but 2025 brings a new wave of remixes...',
+        author: 'DJ Riya',
+        date: 'November 10, 2024',
+        coverImage: 'https://picsum.photos/seed/blog3/800/400',
+        tags: ['Music', 'Playlist', 'Bollywood']
+    }
+];
 
 if (!(window as any).mockDb) {
   console.log("Initializing mock database with data...");
@@ -139,6 +176,19 @@ export const getDjs = async (): Promise<DJProfile[]> => {
       resolve(djs);
     }, ARTIFICIAL_DELAY);
   });
+};
+
+export const getDjsByCity = async (city: string): Promise<DJProfile[]> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            let djs = db.djsStore.filter((dj: DJProfile) => 
+                dj.approvalStatus === 'APPROVED' && 
+                dj.city.toLowerCase() === city.toLowerCase()
+            );
+            djs = calculateDjRankings(djs);
+            resolve(djs);
+        }, ARTIFICIAL_DELAY);
+    });
 };
 
 export const getNearbyDjs = async (lat: number, lon: number, radius: number = 50): Promise<DJProfile[]> => {
@@ -492,4 +542,21 @@ export const upgradeSubscription = async (djId: string, plan: SubscriptionTier):
             resolve(db.djsStore[djIndex]);
         }, ARTIFICIAL_DELAY);
     });
-}
+};
+
+// --- BLOG SERVICE ---
+export const getBlogPosts = async (): Promise<BlogPost[]> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve(MOCK_BLOG_POSTS);
+        }, ARTIFICIAL_DELAY);
+    });
+};
+
+export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | undefined> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve(MOCK_BLOG_POSTS.find(p => p.slug === slug));
+        }, ARTIFICIAL_DELAY);
+    });
+};

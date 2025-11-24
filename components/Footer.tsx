@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { View } from '../types';
 
 interface FooterProps {
-    setView: (view: View) => void;
+  setView: (view: View) => void;
 }
 
 const Footer: React.FC<FooterProps> = ({ setView }) => {
@@ -24,17 +23,17 @@ const Footer: React.FC<FooterProps> = ({ setView }) => {
           <div>
             <h4 className="text-white font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
-              <li><a onClick={() => setView({ page: 'search' })} className="cursor-pointer hover:text-brand-cyan transition-colors">Find DJs</a></li>
+              <li><button onClick={() => setView({ page: 'search' })} className="cursor-pointer hover:text-brand-cyan transition-colors">Find DJs</button></li>
               <li><a href="#" className="hover:text-brand-cyan transition-colors">How It Works</a></li>
-              <li><a onClick={() => setView({ page: 'pricing' })} className="cursor-pointer hover:text-brand-cyan transition-colors">Pricing</a></li>
-              <li><a href="#" className="hover:text-brand-cyan transition-colors">Blog</a></li>
+              <li><button onClick={() => setView({ page: 'pricing' })} className="cursor-pointer hover:text-brand-cyan transition-colors">Pricing</button></li>
+              <li><button onClick={() => setView({ page: 'blog' })} className="cursor-pointer hover:text-brand-cyan transition-colors">Blog & Tips</button></li>
             </ul>
           </div>
           <div>
             <h4 className="text-white font-semibold mb-4">For DJs</h4>
             <ul className="space-y-2 text-sm">
-              <li><a onClick={() => setView({ page: 'pricing' })} className="cursor-pointer hover:text-brand-cyan transition-colors">Join as DJ</a></li>
-               <li><a onClick={() => setView({ page: 'dj-dashboard' })} className="cursor-pointer hover:text-brand-cyan transition-colors">DJ Dashboard</a></li>
+              <li><button onClick={() => setView({ page: 'pricing' })} className="cursor-pointer hover:text-brand-cyan transition-colors">Join as DJ</button></li>
+               <li><button onClick={() => setView({ page: 'dj-dashboard' })} className="cursor-pointer hover:text-brand-cyan transition-colors">DJ Dashboard</button></li>
               <li><a href="#" className="hover:text-brand-cyan transition-colors">Support</a></li>
             </ul>
           </div>
@@ -48,9 +47,6 @@ const Footer: React.FC<FooterProps> = ({ setView }) => {
         </div>
         <div className="mt-8 border-t border-gray-800 pt-8 flex flex-col sm:flex-row justify-between items-center">
           <p className="text-sm">&copy; {new Date().getFullYear()} DJBook. All rights reserved.</p>
-          <div className="flex space-x-4 mt-4 sm:mt-0">
-            {/* Social Icons would go here */}
-          </div>
         </div>
       </div>
     </footer>

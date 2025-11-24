@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { DJProfile, View } from '../types';
 import { getFeaturedDjs } from '../services/mockApiService';
 import DjCard from './DjCard';
-import { LoaderIcon } from './icons';
+import { LoaderIcon, MapPinIcon } from './icons';
 import InteractiveWaveform from './ui/InteractiveWaveform';
 
 interface HomePageProps {
@@ -22,6 +23,8 @@ const HomePage: React.FC<HomePageProps> = ({ setView }) => {
         };
         fetchDjs();
     }, []);
+
+    const POPULAR_CITIES = ['Mumbai', 'Delhi', 'Bengaluru', 'Ahmedabad', 'Goa', 'Pune'];
 
     return (
         <div className="pt-20">
@@ -52,6 +55,20 @@ const HomePage: React.FC<HomePageProps> = ({ setView }) => {
                         >
                             Search
                         </button>
+                    </div>
+                    
+                    {/* Popular Cities Quick Links */}
+                    <div className="mt-8 flex flex-wrap justify-center gap-3 animate-fadeIn">
+                        <span className="text-sm text-gray-400 font-semibold uppercase tracking-wider py-1">Popular:</span>
+                        {POPULAR_CITIES.map(city => (
+                            <button 
+                                key={city}
+                                onClick={() => setView({ page: 'city', cityParam: city })}
+                                className="text-sm text-white bg-white/10 hover:bg-brand-cyan hover:text-black px-3 py-1 rounded-full transition-colors border border-white/10 backdrop-blur-sm"
+                            >
+                                {city}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </section>

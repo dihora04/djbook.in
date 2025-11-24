@@ -88,9 +88,22 @@ export interface DJProfile {
   googleCalendarConnected?: boolean; // New field for Calendar Sync
 }
 
+export interface BlogPost {
+    id: string;
+    slug: string;
+    title: string;
+    excerpt: string;
+    content: string;
+    author: string;
+    date: string;
+    coverImage: string;
+    tags: string[];
+}
+
 export type View = {
-  page: 'home' | 'search' | 'profile' | 'pricing' | 'dj-dashboard' | 'admin-dashboard' | 'user-dashboard';
+  page: 'home' | 'search' | 'profile' | 'pricing' | 'dj-dashboard' | 'admin-dashboard' | 'user-dashboard' | 'city' | 'blog' | 'blog-post';
   slug?: string | null;
+  cityParam?: string | null; // For city pages
 }
 
 export enum CalendarStatus {
