@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { User, Role, SubscriptionTier, View } from './types';
 import Header from './components/Header';
@@ -21,6 +22,7 @@ import { loginUser, registerUser } from './services/mockApiService';
 // NEW: Import Sound System
 import { SoundProvider } from './contexts/SoundContext';
 import SoundToggle from './components/ui/SoundToggle';
+import ChatBot from './components/ChatBot';
 
 interface AuthModalConfig {
   isOpen: boolean;
@@ -111,6 +113,9 @@ function App() {
         
         {/* Global Sound Toggle */}
         <SoundToggle />
+        
+        {/* AI Chat Bot */}
+        <ChatBot />
 
         <Header auth={authProps} setView={setView} />
         <main>

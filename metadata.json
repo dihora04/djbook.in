@@ -2,6 +2,7 @@
   "name": "DJBook - Modern DJ Booking Platform",
   "description": "DJBook.in is a revolutionary DJ booking and marketing platform designed to connect talented DJs with clients for weddings, parties, and corporate events. It offers a modern, user-friendly interface for browsing, booking, and managing DJs.",
   "requestFramePermissions": [
-    "geolocation"
+    "geolocation",
+    "microphone"
   ]
 }

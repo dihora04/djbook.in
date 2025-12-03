@@ -1,4 +1,5 @@
 
+
 import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus, Role, SubscriptionTier, BlogPost } from '../types';
 import { MOCK_USERS, MOCK_DJS, MOCK_BOOKINGS, MOCK_CALENDAR_ENTRIES } from '../constants';
 
@@ -558,5 +559,106 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | undefi
         setTimeout(() => {
             resolve(MOCK_BLOG_POSTS.find(p => p.slug === slug));
         }, ARTIFICIAL_DELAY);
+    });
+};
+
+
+// --- AI BOT HELPERS (NEW) ---
+
+export const findDjsForAi = async (params: { location?: string, genre?: string, name?: string }): Promise<string> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            let results = db.djsStore.filter((dj: DJProfile) => dj.approvalStatus === 'APPROVED');
+            
+            if (params.location) {
+                const loc = params.location.toLowerCase();
+                results = results.filter((dj: DJProfile) => 
+                    dj.city.toLowerCase().includes(loc) || dj.state?.toLowerCase().includes(loc)
+                );
+            }
+            
+            if (params.genre) {
+                 const g = params.genre.toLowerCase();
+                 results = results.filter((dj: DJProfile) => 
+                    dj.genres.some(genre => genre.toLowerCase().includes(g))
+                 );
+            }
+            
+            if (params.name) {
+                const n = params.name.toLowerCase();
+                results = results.filter((dj: DJProfile) => dj.name.toLowerCase().includes(n));
+            }
+            
+            // Map to simplified structure for AI context
+            const simplified = results.slice(0, 5).map((d: DJProfile) => ({
+                id: d.id,
+                name: d.name,
+                city: d.city,
+                fee: d.minFee,
+                genres: d.genres.join(", ")
+            }));
+            
+            resolve(JSON.stringify(simplified));
+        }, 500);
+    });
+};
+
+export const checkAvailabilityForAi = async (djName: string, date: string): Promise<string> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+             // 1. Find DJ
+             const dj = db.djsStore.find((d: DJProfile) => d.name.toLowerCase().includes(djName.toLowerCase()));
+             if (!dj) return resolve("DJ not found.");
+             
+             // 2. Check Calendar
+             const queryDate = new Date(date).setHours(0,0,0,0);
+             const entry = db.calendarEntriesStore.find((e: DJCalendarEntry) => 
+                 e.djProfileId === dj.id && e.date.setHours(0,0,0,0) === queryDate
+             );
+             
+             if (!entry || entry.status === CalendarStatus.AVAILABLE) {
+                 resolve(`Yes, ${dj.name} is available on ${date}. Minimum fee is ₹${dj.minFee}.`);
+             } else {
+                 resolve(`Sorry, ${dj.name} is currently marked as ${entry.status} on ${date}.`);
+             }
+        }, 500);
+    });
+};
+
+export const createBookingForAi = async (djName: string, customerName: string, date: string, requirements: string): Promise<string> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+             const dj = db.djsStore.find((d: DJProfile) => d.name.toLowerCase().includes(djName.toLowerCase()));
+             if (!dj) return resolve("Could not find that DJ to book.");
+             
+             // Create a "Guest" booking
+             const newBooking: Booking = {
+                id: `booking-ai-${Date.now()}`,
+                djId: dj.id,
+                djName: dj.name,
+                djProfileImage: dj.profileImage,
+                customerId: 'guest-user',
+                customerName: customerName,
+                eventDate: new Date(date),
+                eventType: 'Private Event (AI Booking)',
+                location: dj.city,
+                status: BookingStatus.PENDING,
+                notes: requirements
+            };
+            
+            db.bookingsStore.push(newBooking);
+            
+            // Block calendar
+             db.calendarEntriesStore.push({
+                id: `cal-entry-ai-${Date.now()}`,
+                djProfileId: dj.id,
+                date: newBooking.eventDate,
+                status: CalendarStatus.HOLD,
+                title: 'AI Inquiry',
+                bookingId: newBooking.id,
+            });
+            
+            resolve(`Booking inquiry created successfully! Reference ID: ${newBooking.id}. The DJ has been notified.`);
+        }, 500);
     });
 };
