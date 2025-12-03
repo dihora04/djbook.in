@@ -183,12 +183,26 @@ const ChatBot: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isOpen]);
 
+    // Helper to get API key safely
+    const getApiKey = () => {
+        try {
+            return process.env.API_KEY;
+        } catch (e) {
+            console.warn("process.env.API_KEY is not accessible directly.");
+            return undefined;
+        }
+    };
+
     // Initialize Gemini Chat (Text Mode)
     useEffect(() => {
         const initChat = async () => {
             try {
-                // Safe initialization in case process.env is not polyfilled
-                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const apiKey = getApiKey();
+                if (!apiKey) {
+                    console.warn("API Key missing for ChatBot text mode.");
+                    return;
+                }
+                const ai = new GoogleGenAI({ apiKey });
                 chatRef.current = ai.chats.create({
                     model: 'gemini-3-pro-preview',
                     config: {
@@ -337,13 +351,12 @@ const ChatBot: React.FC = () => {
             setIsLiveCallActive(true);
             setLiveStatus('Connecting to AI...');
             
-            // 2. Initialize Gemini Client
-            let ai;
-            try {
-                 ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            } catch(e) {
-                 throw new Error("API Key configuration error.");
+            // 2. Initialize Gemini Client Safely
+            const apiKey = getApiKey();
+            if (!apiKey) {
+                throw new Error("API Key is missing or invalid.");
             }
+            const ai = new GoogleGenAI({ apiKey });
             
             // 3. Audio Contexts
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
