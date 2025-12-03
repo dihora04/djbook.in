@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type, LiveServerMessage, Modality } from '@google/genai';
 import { findDjsForAi, checkAvailabilityForAi, createBookingForAi } from '../services/mockApiService';
@@ -280,20 +279,47 @@ const ChatBot: React.FC = () => {
 
     const startLiveCall = async () => {
         try {
-            setIsLiveCallActive(true);
-            setLiveStatus('Connecting...');
+            setLiveStatus('Checking permissions...');
             window.speechSynthesis.cancel(); // Stop any TTS
 
+            // Check browser support
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("Microphone access not supported in this browser.");
+            }
+
+            // 1. Get Microphone Stream first to ensure permissions
+            try {
+                audioStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err: any) {
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    throw new Error("Microphone permission denied. Please allow access.");
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    throw new Error("No microphone found. Please connect a device.");
+                } else {
+                    throw err;
+                }
+            }
+
+            setIsLiveCallActive(true);
+            setLiveStatus('Connecting to AI...');
+            
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
-            // 1. Audio Contexts
+            // 2. Audio Contexts
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
+            
+            // Use system sample rate if possible to avoid hardware mismatch issues, then resample if needed
+            // But Gemini requires 16k input. We use ScriptProcessor which processes at context rate.
+            // We should try to initialize at 16k, if fail, fallback to default and handle it.
+            try {
+                inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
+            } catch(e) {
+                console.warn("16k sample rate not supported, falling back to system rate");
+                inputAudioContextRef.current = new AudioContext(); 
+            }
+            
             outputAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
-            
-            // 2. Microphone Stream
-            audioStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
+
             // 3. Connect to Live API
             const sessionPromise = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -384,7 +410,7 @@ const ChatBot: React.FC = () => {
                     },
                     onerror: (e) => {
                         console.error("Live session error", e);
-                        setLiveStatus('Error');
+                        setLiveStatus('Connection Error');
                         setTimeout(endLiveCall, 2000);
                     }
                 }
@@ -392,9 +418,10 @@ const ChatBot: React.FC = () => {
             
             liveSessionRef.current = sessionPromise;
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to start live call", error);
-            endLiveCall();
+            setLiveStatus(error.message || "Failed to start call");
+            setTimeout(endLiveCall, 3000);
         }
     };
 
@@ -445,14 +472,14 @@ const ChatBot: React.FC = () => {
                              </div>
                              
                              <h3 className="text-2xl font-bold text-white mb-2">Voice Agent Active</h3>
-                             <p className="text-brand-cyan font-mono mb-12">{liveStatus}</p>
+                             <p className="text-brand-cyan font-mono mb-12 text-center text-sm">{liveStatus}</p>
                              
                              <button 
                                 onClick={endLiveCall}
                                 className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30"
                             >
                                 <EndCallIcon />
-                             </button>
+                            </button>
                         </div>
                     )}
 
