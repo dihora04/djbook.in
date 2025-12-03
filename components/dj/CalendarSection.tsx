@@ -76,6 +76,7 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ djId }) => {
 
         const eventsMap = new Map<string, DJCalendarEntry>();
         events.forEach(event => {
+            // Consistent date key using string split (data is UTC)
             const dateKey = event.date.toISOString().split('T')[0];
             eventsMap.set(dateKey, event);
         });
@@ -100,7 +101,8 @@ const CalendarSection: React.FC<CalendarSectionProps> = ({ djId }) => {
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
+            // CRITICAL: Construct date using UTC to match the Mock Data format and avoid timezone shifts
+            const date = new Date(Date.UTC(year, month, day));
             const dateKey = date.toISOString().split('T')[0];
             const event = eventsMap.get(dateKey);
             const cellStyle = event ? cellStatusStyles[event.status] : cellStatusStyles[CalendarStatus.AVAILABLE];

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DJProfile, DJCalendarEntry, CalendarStatus, User, View } from '../types';
 import { getDjBySlug, getPublicDjAvailability, createBooking } from '../services/mockApiService';
@@ -42,7 +43,8 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
         const unavailableDates = new Set<string>();
         availabilityData.forEach(entry => {
           if (entry.status !== CalendarStatus.AVAILABLE) {
-            unavailableDates.add(new Date(entry.date).toISOString().split('T')[0]);
+            // Consistent date string extraction
+            unavailableDates.add(entry.date.toISOString().split('T')[0]);
           }
         });
         setAvailability(unavailableDates);
@@ -62,6 +64,8 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateVal = e.target.value;
     setSelectedDate(dateVal);
+    
+    // Check using string match
     if (availability.has(dateVal)) {
         setDateError('This date is unavailable. Please choose another.');
     } else {
@@ -104,7 +108,7 @@ const DjProfilePage: React.FC<DjProfilePageProps> = ({ slug, setView, currentUse
             customerId: currentUser.id,
             customerName: customerName, 
             customerPhone: customerPhone,
-            eventDate: new Date(selectedDate),
+            eventDate: new Date(selectedDate), // This creates UTC midnight for 'YYYY-MM-DD'
             eventType: selectedEventType,
             location: dj.city, 
             notes: 'Booking request via platform.'

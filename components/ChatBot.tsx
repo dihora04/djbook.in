@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type, LiveServerMessage, Modality } from '@google/genai';
-import { findDjsForAi, checkAvailabilityForAi, createBookingForAi } from '../services/mockApiService';
+import { findDjsForAi, checkAvailabilityForAi, createBookingForAi, createLeadForAi } from '../services/mockApiService';
 import { LoaderIcon, CheckCircleIcon, XCircleIcon, PhoneIcon } from './icons';
 
 // --- ICONS ---
@@ -135,27 +135,64 @@ const tools = [
                 }
             },
             {
-                name: 'book_dj',
-                description: 'Create a booking inquiry for a DJ.',
+                name: 'create_lead',
+                description: 'Capture a detailed lead/booking request from the user. Use this when the user is ready to book or get a quote.',
                 parameters: {
                     type: Type.OBJECT,
                     properties: {
-                        djName: { type: Type.STRING, description: 'Name of the DJ to book' },
-                        customerName: { type: Type.STRING, description: 'Name of the customer' },
-                        date: { type: Type.STRING, description: 'Event date' },
-                        requirements: { type: Type.STRING, description: 'Any specific event details or notes' }
+                        name: { type: Type.STRING, description: 'Customer full name' },
+                        phone: { type: Type.STRING, description: 'Mobile number' },
+                        city: { type: Type.STRING, description: 'Event city/area' },
+                        event_type: { type: Type.STRING, description: 'Wedding, Birthday, etc.' },
+                        event_date: { type: Type.STRING, description: 'Date of event' },
+                        guest_count: { type: Type.STRING, description: 'Approximate number of guests' },
+                        budget: { type: Type.STRING, description: 'Budget range e.g. 20-30k' },
+                        requirements: { type: Type.STRING, description: 'Sound, Lights, or specific DJ name' }
                     },
-                    required: ['djName', 'customerName', 'date']
+                    required: ['name', 'phone', 'city', 'event_type']
                 }
             }
         ]
     }
 ];
 
+// --- SYSTEM PROMPT ---
+const DJ_AGENT_PROMPT = `
+You are DJBook AI – Voice Booking Agent.
+Your main goal is to:
+1. Talk to visitors in a friendly, human-like way (voice + chat).
+2. Capture high-quality leads and DJ booking requests.
+3. Use real data provided by tools to help users.
+
+Conversation Style:
+- Language: Hinglish (simple Hindi + English mixed), polite and energetic.
+- Tone: Helpful event-expert + friendly planner.
+- Personality: Warm, positive, not over-formal.
+- Example: "Namaste! Main DJBook AI hoon, aapke event ka DJ fix karne me help karta hoon. Thoda detail batao – kahan ka event hai, kab hai?"
+
+Main Tasks:
+- Understand User Intent: Book a DJ, Get price, Check availability.
+- Ask Smart Questions (Lead Form by Voice): Collect Name, Mobile, City, Event Type, Date, Guest Count, Budget.
+- Ask step by step, not all at once.
+- Use Tools: 
+  - Call 'search_djs' if they ask for options.
+  - Call 'check_availability' for specific dates.
+  - Call 'create_lead' ONLY when you have enough details (at least Name, Phone, City, Event Type).
+
+Qualify the Lead:
+- If budget is unrealistic, educate softly: "Is range me basic DJ aa sakta hai, lekin sound & lights ke liye thoda budget badhana padega."
+
+Close the Lead:
+- Confirm sending details on WhatsApp/SMS.
+- "Kya main aapko shortlisted DJs aur quote WhatsApp pe share kar doon?"
+
+Note: Current date is ${new Date().toDateString()}.
+`;
+
 const ChatBot: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: '1', role: 'model', text: "Hey! I'm your AI Booking Agent. Looking for a DJ in Mumbai or Delhi? Or maybe checking availability for a specific artist?" }
+        { id: '1', role: 'model', text: "Namaste! Main DJBook AI hoon. Aapke event ke liye best DJ dhoondne me help kar sakta hoon. Kahan ka event plan kar rahe ho aap?" }
     ]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -207,9 +244,7 @@ const ChatBot: React.FC = () => {
                     model: 'gemini-3-pro-preview',
                     config: {
                         tools: tools,
-                        systemInstruction: `You are an expert DJ Booking Assistant for 'DJBook.in'. 
-                        Rules: Check availability before booking. Use search_djs for finding artists. 
-                        Today: ${new Date().toDateString()}. Currency: INR.`,
+                        systemInstruction: DJ_AGENT_PROMPT,
                     },
                 });
             } catch (e) {
@@ -224,7 +259,7 @@ const ChatBot: React.FC = () => {
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = false;
             recognitionRef.current.interimResults = false;
-            recognitionRef.current.lang = 'en-US';
+            recognitionRef.current.lang = 'en-US'; // Or hi-IN if you want Hindi priority
 
             recognitionRef.current.onresult = (event: any) => {
                 const transcript = event.results[0][0].transcript;
@@ -244,10 +279,11 @@ const ChatBot: React.FC = () => {
         if (!voiceMode || isLiveCallActive) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
+        // Try to find an Indian voice for authentic Hinglish feel
         const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(v => v.name.includes('Google US English')) || voices[0];
+        const preferredVoice = voices.find(v => v.lang.includes('IN')) || voices.find(v => v.name.includes('Google US English')) || voices[0];
         if (preferredVoice) utterance.voice = preferredVoice;
-        utterance.rate = 1.1;
+        utterance.rate = 1.0;
         window.speechSynthesis.speak(utterance);
     };
 
@@ -287,8 +323,8 @@ const ChatBot: React.FC = () => {
                     let result = "";
                     if (call.name === 'search_djs') result = await findDjsForAi(call.args as any);
                     else if (call.name === 'check_availability') result = await checkAvailabilityForAi(call.args.djName, call.args.date);
-                    else if (call.name === 'book_dj') result = await createBookingForAi(call.args.djName, call.args.customerName, call.args.date, call.args.requirements || '');
-
+                    else if (call.name === 'create_lead') result = await createLeadForAi(call.args);
+                    
                     parts.push({
                         functionResponse: {
                             id: call.id,
@@ -319,7 +355,7 @@ const ChatBot: React.FC = () => {
 
     const startLiveCall = async () => {
         try {
-            setLiveStatus('Checking permissions...');
+            setLiveStatus('Connecting...');
             window.speechSynthesis.cancel(); // Stop any TTS
 
             // Check browser support
@@ -349,7 +385,7 @@ const ChatBot: React.FC = () => {
             }
 
             setIsLiveCallActive(true);
-            setLiveStatus('Connecting to AI...');
+            setLiveStatus('Tuning the beats...');
             
             // 2. Initialize Gemini Client Safely
             const apiKey = getApiKey();
@@ -377,7 +413,10 @@ const ChatBot: React.FC = () => {
                 config: {
                     responseModalities: [Modality.AUDIO],
                     tools: tools,
-                    systemInstruction: "You are a helpful, energetic voice assistant for DJBook.in. Help users find DJs and book them. Keep responses concise and conversational.",
+                    systemInstruction: DJ_AGENT_PROMPT,
+                    speechConfig: {
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
+                    }
                 },
                 callbacks: {
                     onopen: () => {
@@ -449,7 +488,7 @@ const ChatBot: React.FC = () => {
                                 let result = "";
                                 if (fc.name === 'search_djs') result = await findDjsForAi(fc.args as any);
                                 else if (fc.name === 'check_availability') result = await checkAvailabilityForAi(fc.args.djName as string, fc.args.date as string);
-                                else if (fc.name === 'book_dj') result = await createBookingForAi(fc.args.djName as string, fc.args.customerName as string, fc.args.date as string, fc.args.requirements as string || '');
+                                else if (fc.name === 'create_lead') result = await createLeadForAi(fc.args);
                                 
                                 sessionPromise.then(session => {
                                     session.sendToolResponse({

@@ -1,5 +1,4 @@
 
-
 import { DJProfile, Booking, User, DJCalendarEntry, CalendarStatus, BookingStatus, Role, SubscriptionTier, BlogPost } from '../types';
 import { MOCK_USERS, MOCK_DJS, MOCK_BOOKINGS, MOCK_CALENDAR_ENTRIES } from '../constants';
 
@@ -53,6 +52,13 @@ if (!(window as any).mockDb) {
 }
 
 const db = (window as any).mockDb;
+
+// Helper to get consistent YYYY-MM-DD string from Date object
+const getDateStr = (date: Date | string) => {
+    const d = new Date(date);
+    // Use ISO string split, assumes Date objects are UTC or we just want the date part
+    return d.toISOString().split('T')[0];
+};
 
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; 
@@ -305,11 +311,11 @@ export const getPublicDjAvailability = async (djId: string): Promise<Pick<DJCale
 export const updateDjCalendarEntry = async (djId: string, entryData: Omit<DJCalendarEntry, 'id' | 'djProfileId'>): Promise<DJCalendarEntry> => {
     return new Promise(resolve => {
         setTimeout(() => {
-            const dateToFind = entryData.date.setHours(0,0,0,0);
+            const dateStr = getDateStr(entryData.date);
             let updatedEntry: DJCalendarEntry | undefined;
 
             const existingEntryIndex = db.calendarEntriesStore.findIndex((entry: DJCalendarEntry) => 
-                entry.djProfileId === djId && entry.date.setHours(0,0,0,0) === dateToFind
+                entry.djProfileId === djId && getDateStr(entry.date) === dateStr
             );
 
             if (existingEntryIndex !== -1) {
@@ -393,9 +399,9 @@ export const acceptBooking = async (bookingId: string, djId: string): Promise<Bo
             const updatedBooking = { ...db.bookingsStore[bookingIndex], status: BookingStatus.ACCEPTED };
             db.bookingsStore[bookingIndex] = updatedBooking;
 
-            const dateToFind = updatedBooking.eventDate.setHours(0,0,0,0);
+            const dateStr = getDateStr(updatedBooking.eventDate);
             const calendarEntryIndex = db.calendarEntriesStore.findIndex((entry: DJCalendarEntry) => 
-                entry.djProfileId === djId && entry.date.setHours(0,0,0,0) === dateToFind
+                entry.djProfileId === djId && getDateStr(entry.date) === dateStr
             );
 
             if (calendarEntryIndex !== -1) {
@@ -429,10 +435,10 @@ export const rejectBooking = async (bookingId: string, djId: string): Promise<Bo
             const updatedBooking = { ...db.bookingsStore[bookingIndex], status: BookingStatus.REJECTED };
             db.bookingsStore[bookingIndex] = updatedBooking;
 
-            const dateToFind = updatedBooking.eventDate.setHours(0,0,0,0);
+            const dateStr = getDateStr(updatedBooking.eventDate);
             const calendarEntryIndex = db.calendarEntriesStore.findIndex((entry: DJCalendarEntry) => 
                 entry.djProfileId === djId && 
-                entry.date.setHours(0,0,0,0) === dateToFind &&
+                getDateStr(entry.date) === dateStr &&
                 entry.bookingId === bookingId
             );
 
@@ -448,9 +454,11 @@ export const rejectBooking = async (bookingId: string, djId: string): Promise<Bo
 export const createBooking = async (bookingData: Omit<Booking, 'id'|'status'|'djName'|'djProfileImage'>): Promise<Booking> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const dateToCheck = bookingData.eventDate.toISOString().split('T')[0];
+            const dateStr = getDateStr(bookingData.eventDate);
             const djCalendar = db.calendarEntriesStore.filter((e: DJCalendarEntry) => e.djProfileId === bookingData.djId);
-            const isUnavailable = djCalendar.some((e: DJCalendarEntry) => e.date.toISOString().split('T')[0] === dateToCheck && e.status !== CalendarStatus.AVAILABLE);
+            
+            // Check for conflict using String comparison to avoid timezone issues
+            const isUnavailable = djCalendar.some((e: DJCalendarEntry) => getDateStr(e.date) === dateStr && e.status !== CalendarStatus.AVAILABLE);
 
             if (isUnavailable) {
                 return reject(new Error("The selected date is no longer available."));
@@ -611,9 +619,9 @@ export const checkAvailabilityForAi = async (djName: string, date: string): Prom
              if (!dj) return resolve("DJ not found.");
              
              // 2. Check Calendar
-             const queryDate = new Date(date).setHours(0,0,0,0);
+             const queryDateStr = getDateStr(date);
              const entry = db.calendarEntriesStore.find((e: DJCalendarEntry) => 
-                 e.djProfileId === dj.id && e.date.setHours(0,0,0,0) === queryDate
+                 e.djProfileId === dj.id && getDateStr(e.date) === queryDateStr
              );
              
              if (!entry || entry.status === CalendarStatus.AVAILABLE) {
@@ -659,6 +667,19 @@ export const createBookingForAi = async (djName: string, customerName: string, d
             });
             
             resolve(`Booking inquiry created successfully! Reference ID: ${newBooking.id}. The DJ has been notified.`);
+        }, 500);
+    });
+};
+
+export const createLeadForAi = async (leadDetails: any): Promise<string> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            console.log("New AI Lead Captured:", leadDetails);
+            
+            // In a real app, this would save to a 'Leads' table
+            // For now, we simulate a general booking inquiry if a DJ is mentioned, or just log it.
+            
+            resolve(`Great! I've captured your details. Our team will contact you shortly at ${leadDetails.phone} with the best options for your ${leadDetails.event_type} in ${leadDetails.city}. Reference Lead ID: LD-${Date.now()}.`);
         }, 500);
     });
 };
