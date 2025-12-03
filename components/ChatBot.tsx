@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type, LiveServerMessage, Modality } from '@google/genai';
 import { findDjsForAi, checkAvailabilityForAi, createBookingForAi } from '../services/mockApiService';
@@ -34,14 +35,34 @@ interface Message {
 }
 
 // --- AUDIO UTILS ---
+
+// Downsample buffer to 16kHz
+function downsampleTo16k(inputData: Float32Array, inputSampleRate: number): Float32Array {
+    if (inputSampleRate === 16000) return inputData;
+    const ratio = inputSampleRate / 16000;
+    const newLength = Math.round(inputData.length / ratio);
+    const result = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+        const offset = i * ratio;
+        const index = Math.floor(offset);
+        const decimal = offset - index;
+        const s1 = inputData[index] || 0;
+        const s2 = inputData[index + 1] || s1;
+        // Linear interpolation
+        result[i] = s1 + (s2 - s1) * decimal;
+    }
+    return result;
+}
+
 function createBlob(data: Float32Array): { data: string, mimeType: string } {
     const l = data.length;
     const int16 = new Int16Array(l);
     for (let i = 0; i < l; i++) {
+        // Clamp and convert float to 16-bit PCM
         int16[i] = Math.max(-1, Math.min(1, data[i])) * 32767;
     }
     
-    // Simple Binary to Base64 conversion
+    // Binary to Base64
     let binary = '';
     const bytes = new Uint8Array(int16.buffer);
     const len = bytes.byteLength;
@@ -165,16 +186,21 @@ const ChatBot: React.FC = () => {
     // Initialize Gemini Chat (Text Mode)
     useEffect(() => {
         const initChat = async () => {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            chatRef.current = ai.chats.create({
-                model: 'gemini-3-pro-preview',
-                config: {
-                    tools: tools,
-                    systemInstruction: `You are an expert DJ Booking Assistant for 'DJBook.in'. 
-                    Rules: Check availability before booking. Use search_djs for finding artists. 
-                    Today: ${new Date().toDateString()}. Currency: INR.`,
-                },
-            });
+            try {
+                // Safe initialization in case process.env is not polyfilled
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                chatRef.current = ai.chats.create({
+                    model: 'gemini-3-pro-preview',
+                    config: {
+                        tools: tools,
+                        systemInstruction: `You are an expert DJ Booking Assistant for 'DJBook.in'. 
+                        Rules: Check availability before booking. Use search_djs for finding artists. 
+                        Today: ${new Date().toDateString()}. Currency: INR.`,
+                    },
+                });
+            } catch (e) {
+                console.error("Failed to initialize text chat", e);
+            }
         };
         initChat();
 
@@ -287,9 +313,17 @@ const ChatBot: React.FC = () => {
                 throw new Error("Microphone access not supported in this browser.");
             }
 
-            // 1. Get Microphone Stream first to ensure permissions
+            // 1. Get Microphone Stream first with specific constraints
             try {
-                audioStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        autoGainControl: true,
+                        noiseSuppression: true
+                    }
+                });
             } catch (err: any) {
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                     throw new Error("Microphone permission denied. Please allow access.");
@@ -303,14 +337,18 @@ const ChatBot: React.FC = () => {
             setIsLiveCallActive(true);
             setLiveStatus('Connecting to AI...');
             
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            // 2. Initialize Gemini Client
+            let ai;
+            try {
+                 ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            } catch(e) {
+                 throw new Error("API Key configuration error.");
+            }
             
-            // 2. Audio Contexts
+            // 3. Audio Contexts
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
             
-            // Use system sample rate if possible to avoid hardware mismatch issues, then resample if needed
-            // But Gemini requires 16k input. We use ScriptProcessor which processes at context rate.
-            // We should try to initialize at 16k, if fail, fallback to default and handle it.
+            // Try to initialize at 16k, but accept fallback
             try {
                 inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
             } catch(e) {
@@ -320,7 +358,7 @@ const ChatBot: React.FC = () => {
             
             outputAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
 
-            // 3. Connect to Live API
+            // 4. Connect to Live API
             const sessionPromise = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
                 config: {
@@ -335,12 +373,20 @@ const ChatBot: React.FC = () => {
                         if (!inputAudioContextRef.current || !audioStreamRef.current) return;
                         
                         const source = inputAudioContextRef.current.createMediaStreamSource(audioStreamRef.current);
+                        
+                        // ScriptProcessor is deprecated but still the most reliable way to get raw PCM in older browsers/environments without AudioWorklet setup
                         const processor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
                         scriptProcessorRef.current = processor;
                         
                         processor.onaudioprocess = (e) => {
                             const inputData = e.inputBuffer.getChannelData(0);
-                            const pcmBlob = createBlob(inputData);
+                            
+                            // Important: Downsample if context is running at 44.1k/48k
+                            // Gemini API requires 16k, otherwise audio will be slowed down server-side.
+                            const currentSampleRate = inputAudioContextRef.current?.sampleRate || 16000;
+                            const downsampledData = downsampleTo16k(inputData, currentSampleRate);
+                            
+                            const pcmBlob = createBlob(downsampledData);
                             sessionPromise.then(session => {
                                 session.sendRealtimeInput({ media: pcmBlob });
                             });
