@@ -160,17 +160,22 @@ const VoiceAgentCall: React.FC = () => {
 
         try {
             // 1. Microphone Access
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error("Microphone not supported.");
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Microphone not supported.");
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true }
+                });
+                audioStreamRef.current = stream;
+            } catch (micError: any) {
+                console.error("Microphone Access Error:", micError);
+                throw new Error("Mic Access Denied. Check permissions.");
             }
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true }
-            });
-            audioStreamRef.current = stream;
 
             // 2. API Key
             const apiKey = getApiKey();
-            if (!apiKey) throw new Error("API Key missing.");
+            if (!apiKey) throw new Error("API Key missing in environment.");
             const ai = new GoogleGenAI({ apiKey });
 
             // 3. Audio Contexts
@@ -178,9 +183,14 @@ const VoiceAgentCall: React.FC = () => {
             try {
                 inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
             } catch(e) {
+                console.warn("16kHz AudioContext not supported, fallback to default.");
                 inputAudioContextRef.current = new AudioContext();
             }
             outputAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
+
+            // Resume audio contexts if suspended (browser policy)
+            if (inputAudioContextRef.current?.state === 'suspended') await inputAudioContextRef.current.resume();
+            if (outputAudioContextRef.current?.state === 'suspended') await outputAudioContextRef.current.resume();
 
             // 4. Connect Gemini Live
             const sessionPromise = ai.live.connect({
@@ -190,12 +200,12 @@ const VoiceAgentCall: React.FC = () => {
                     tools: tools,
                     systemInstruction: SYSTEM_INSTRUCTION,
                     speechConfig: {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } // Puck/Fenrir often sound female/soft
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } // Kore is often softer/female
                     }
                 },
                 callbacks: {
                     onopen: () => {
-                        setStatusText('Connected');
+                        setStatusText('Live');
                         if (!inputAudioContextRef.current || !audioStreamRef.current) return;
                         
                         const source = inputAudioContextRef.current.createMediaStreamSource(audioStreamRef.current);
@@ -258,18 +268,26 @@ const VoiceAgentCall: React.FC = () => {
                     },
                     onclose: () => endCall(),
                     onerror: (e) => {
-                        console.error(e);
-                        setStatusText("Connection Error");
+                        console.error("Session Error:", e);
+                        setStatusText("Connection Lost");
                         setTimeout(endCall, 2000);
                     }
                 }
             });
+            
+            // Handle initial connection failure specifically
+            sessionPromise.catch(err => {
+                console.error("Connection Handshake Failed:", err);
+                setStatusText(`Connect Failed: ${err.message || 'Unknown'}`);
+                setTimeout(endCall, 3000);
+            });
+
             liveSessionRef.current = sessionPromise;
 
         } catch (error: any) {
-            console.error(error);
-            setStatusText("Call Failed");
-            setTimeout(endCall, 2000);
+            console.error("Setup Error:", error);
+            setStatusText(error.message || "Call Failed");
+            setTimeout(endCall, 3000);
         }
     };
 
