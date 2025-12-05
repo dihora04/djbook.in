@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, FunctionDeclaration, Type, LiveServerMessage, Modality } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { findDjsForAi, checkAvailabilityForAi, createBookingForAi, createLeadForAi } from '../services/mockApiService';
-import { LoaderIcon, CheckCircleIcon, XCircleIcon, PhoneIcon } from './icons';
+import { XCircleIcon } from './icons';
 
 // --- ICONS ---
 const ChatIcon = () => (
@@ -20,12 +20,6 @@ const SpeakerIcon = ({ active }: { active: boolean }) => (
 const RobotIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
 );
-const EndCallIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>
-);
-const HeadphoneIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-);
 
 // --- TYPES ---
 interface Message {
@@ -33,78 +27,6 @@ interface Message {
     role: 'user' | 'model';
     text: string;
 }
-
-// --- AUDIO UTILS ---
-
-// Downsample buffer to 16kHz
-function downsampleTo16k(inputData: Float32Array, inputSampleRate: number): Float32Array {
-    if (inputSampleRate === 16000) return inputData;
-    const ratio = inputSampleRate / 16000;
-    const newLength = Math.round(inputData.length / ratio);
-    const result = new Float32Array(newLength);
-    for (let i = 0; i < newLength; i++) {
-        const offset = i * ratio;
-        const index = Math.floor(offset);
-        const decimal = offset - index;
-        const s1 = inputData[index] || 0;
-        const s2 = inputData[index + 1] || s1;
-        // Linear interpolation
-        result[i] = s1 + (s2 - s1) * decimal;
-    }
-    return result;
-}
-
-function createBlob(data: Float32Array): { data: string, mimeType: string } {
-    const l = data.length;
-    const int16 = new Int16Array(l);
-    for (let i = 0; i < l; i++) {
-        // Clamp and convert float to 16-bit PCM
-        int16[i] = Math.max(-1, Math.min(1, data[i])) * 32767;
-    }
-    
-    // Binary to Base64
-    let binary = '';
-    const bytes = new Uint8Array(int16.buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    
-    return {
-        data: btoa(binary),
-        mimeType: 'audio/pcm;rate=16000',
-    };
-}
-
-function decodeBase64(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-}
-
-async function decodeAudioData(
-    data: Uint8Array,
-    ctx: AudioContext,
-    sampleRate: number,
-    numChannels: number,
-): Promise<AudioBuffer> {
-    const dataInt16 = new Int16Array(data.buffer);
-    const frameCount = dataInt16.length / numChannels;
-    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-    for (let channel = 0; channel < numChannels; channel++) {
-        const channelData = buffer.getChannelData(channel);
-        for (let i = 0; i < frameCount; i++) {
-            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-        }
-    }
-    return buffer;
-}
-
 
 // --- TOOLS DEFINITION ---
 const tools = [
@@ -136,18 +58,18 @@ const tools = [
             },
             {
                 name: 'create_lead',
-                description: 'Capture a detailed lead/booking request from the user. Use this when the user is ready to book or get a quote.',
+                description: 'Capture a detailed lead/booking request from the user.',
                 parameters: {
                     type: Type.OBJECT,
                     properties: {
-                        name: { type: Type.STRING, description: 'Customer full name' },
-                        phone: { type: Type.STRING, description: 'Mobile number' },
-                        city: { type: Type.STRING, description: 'Event city/area' },
-                        event_type: { type: Type.STRING, description: 'Wedding, Birthday, etc.' },
-                        event_date: { type: Type.STRING, description: 'Date of event' },
-                        guest_count: { type: Type.STRING, description: 'Approximate number of guests' },
-                        budget: { type: Type.STRING, description: 'Budget range e.g. 20-30k' },
-                        requirements: { type: Type.STRING, description: 'Sound, Lights, or specific DJ name' }
+                        name: { type: Type.STRING },
+                        phone: { type: Type.STRING },
+                        city: { type: Type.STRING },
+                        event_type: { type: Type.STRING },
+                        event_date: { type: Type.STRING },
+                        guest_count: { type: Type.STRING },
+                        budget: { type: Type.STRING },
+                        requirements: { type: Type.STRING }
                     },
                     required: ['name', 'phone', 'city', 'event_type']
                 }
@@ -158,62 +80,27 @@ const tools = [
 
 // --- SYSTEM PROMPT ---
 const DJ_AGENT_PROMPT = `
-You are DJBook AI – Voice Booking Agent.
-Your main goal is to:
-1. Talk to visitors in a friendly, human-like way (voice + chat).
-2. Capture high-quality leads and DJ booking requests.
-3. Use real data provided by tools to help users.
-
-Conversation Style:
-- Language: Hinglish (simple Hindi + English mixed), polite and energetic.
-- Tone: Helpful event-expert + friendly planner.
-- Personality: Warm, positive, not over-formal.
-- Example: "Namaste! Main DJBook AI hoon, aapke event ka DJ fix karne me help karta hoon. Thoda detail batao – kahan ka event hai, kab hai?"
-
-Main Tasks:
-- Understand User Intent: Book a DJ, Get price, Check availability.
-- Ask Smart Questions (Lead Form by Voice): Collect Name, Mobile, City, Event Type, Date, Guest Count, Budget.
-- Ask step by step, not all at once.
-- Use Tools: 
-  - Call 'search_djs' if they ask for options.
-  - Call 'check_availability' for specific dates.
-  - Call 'create_lead' ONLY when you have enough details (at least Name, Phone, City, Event Type).
-
-Qualify the Lead:
-- If budget is unrealistic, educate softly: "Is range me basic DJ aa sakta hai, lekin sound & lights ke liye thoda budget badhana padega."
-
-Close the Lead:
-- Confirm sending details on WhatsApp/SMS.
-- "Kya main aapko shortlisted DJs aur quote WhatsApp pe share kar doon?"
-
+You are DJBook AI – Chat Assistant.
+Goal: Help users find DJs, check availability, and create leads via text.
+Style: Polite, helpful, using simple English or Hinglish.
+Tools: Use 'search_djs', 'check_availability', 'create_lead' when appropriate.
 Note: Current date is ${new Date().toDateString()}.
 `;
 
 const ChatBot: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: '1', role: 'model', text: "Namaste! Main DJBook AI hoon. Aapke event ke liye best DJ dhoondne me help kar sakta hoon. Kahan ka event plan kar rahe ho aap?" }
+        { id: '1', role: 'model', text: "Hi there! I'm DJBook AI. Need help finding a DJ or checking availability? Just ask!" }
     ]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [voiceMode, setVoiceMode] = useState(false); // TTS for text chat
     const [isListening, setIsListening] = useState(false); // Text chat dictation
-    const [isLiveCallActive, setIsLiveCallActive] = useState(false); // Live API State
-    const [liveStatus, setLiveStatus] = useState<string>('');
 
-    // Refs for Text Chat
+    // Refs
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatRef = useRef<any>(null); // GoogleGenAI Chat Session
     const recognitionRef = useRef<any>(null); // SpeechRecognition
-
-    // Refs for Live Call
-    const liveSessionRef = useRef<any>(null);
-    const inputAudioContextRef = useRef<AudioContext | null>(null);
-    const outputAudioContextRef = useRef<AudioContext | null>(null);
-    const audioStreamRef = useRef<MediaStream | null>(null);
-    const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-    const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-    const nextStartTimeRef = useRef<number>(0);
 
     // Scroll to bottom
     useEffect(() => {
@@ -235,10 +122,7 @@ const ChatBot: React.FC = () => {
         const initChat = async () => {
             try {
                 const apiKey = getApiKey();
-                if (!apiKey) {
-                    console.warn("API Key missing for ChatBot text mode.");
-                    return;
-                }
+                if (!apiKey) return;
                 const ai = new GoogleGenAI({ apiKey });
                 chatRef.current = ai.chats.create({
                     model: 'gemini-3-pro-preview',
@@ -259,7 +143,7 @@ const ChatBot: React.FC = () => {
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = false;
             recognitionRef.current.interimResults = false;
-            recognitionRef.current.lang = 'en-US'; // Or hi-IN if you want Hindi priority
+            recognitionRef.current.lang = 'en-US'; 
 
             recognitionRef.current.onresult = (event: any) => {
                 const transcript = event.results[0][0].transcript;
@@ -276,19 +160,17 @@ const ChatBot: React.FC = () => {
     // --- TEXT CHAT FUNCTIONS ---
 
     const speak = (text: string) => {
-        if (!voiceMode || isLiveCallActive) return;
+        if (!voiceMode) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        // Try to find an Indian voice for authentic Hinglish feel
         const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(v => v.lang.includes('IN')) || voices.find(v => v.name.includes('Google US English')) || voices[0];
+        const preferredVoice = voices.find(v => v.lang.includes('IN')) || voices[0];
         if (preferredVoice) utterance.voice = preferredVoice;
         utterance.rate = 1.0;
         window.speechSynthesis.speak(utterance);
     };
 
     const toggleListening = () => {
-        if (isLiveCallActive) return;
         if (isListening) {
             recognitionRef.current?.stop();
             setIsListening(false);
@@ -350,254 +232,18 @@ const ChatBot: React.FC = () => {
         }
     };
 
-
-    // --- LIVE CALL FUNCTIONS ---
-
-    const startLiveCall = async () => {
-        try {
-            setLiveStatus('Connecting...');
-            window.speechSynthesis.cancel(); // Stop any TTS
-
-            // Check browser support
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error("Microphone access not supported in this browser.");
-            }
-
-            // 1. Get Microphone Stream first with specific constraints
-            try {
-                audioStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        sampleRate: 16000,
-                        channelCount: 1,
-                        echoCancellation: true,
-                        autoGainControl: true,
-                        noiseSuppression: true
-                    }
-                });
-            } catch (err: any) {
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    throw new Error("Microphone permission denied. Please allow access.");
-                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-                    throw new Error("No microphone found. Please connect a device.");
-                } else {
-                    throw err;
-                }
-            }
-
-            setIsLiveCallActive(true);
-            setLiveStatus('Tuning the beats...');
-            
-            // 2. Initialize Gemini Client Safely
-            const apiKey = getApiKey();
-            if (!apiKey) {
-                throw new Error("API Key is missing or invalid.");
-            }
-            const ai = new GoogleGenAI({ apiKey });
-            
-            // 3. Audio Contexts
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            
-            // Try to initialize at 16k, but accept fallback
-            try {
-                inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
-            } catch(e) {
-                console.warn("16k sample rate not supported, falling back to system rate");
-                inputAudioContextRef.current = new AudioContext(); 
-            }
-            
-            outputAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
-
-            // 4. Connect to Live API
-            const sessionPromise = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                    tools: tools,
-                    systemInstruction: DJ_AGENT_PROMPT,
-                    speechConfig: {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
-                    }
-                },
-                callbacks: {
-                    onopen: () => {
-                        setLiveStatus('Live');
-                        // Start Audio Streaming
-                        if (!inputAudioContextRef.current || !audioStreamRef.current) return;
-                        
-                        const source = inputAudioContextRef.current.createMediaStreamSource(audioStreamRef.current);
-                        
-                        // ScriptProcessor is deprecated but still the most reliable way to get raw PCM in older browsers/environments without AudioWorklet setup
-                        const processor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
-                        scriptProcessorRef.current = processor;
-                        
-                        processor.onaudioprocess = (e) => {
-                            const inputData = e.inputBuffer.getChannelData(0);
-                            
-                            // Important: Downsample if context is running at 44.1k/48k
-                            // Gemini API requires 16k, otherwise audio will be slowed down server-side.
-                            const currentSampleRate = inputAudioContextRef.current?.sampleRate || 16000;
-                            const downsampledData = downsampleTo16k(inputData, currentSampleRate);
-                            
-                            const pcmBlob = createBlob(downsampledData);
-                            sessionPromise.then(session => {
-                                session.sendRealtimeInput({ media: pcmBlob });
-                            });
-                        };
-                        
-                        source.connect(processor);
-                        processor.connect(inputAudioContextRef.current.destination);
-                    },
-                    onmessage: async (msg: LiveServerMessage) => {
-                        // Handle Audio Output
-                        const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                        if (audioData && outputAudioContextRef.current) {
-                            const ctx = outputAudioContextRef.current;
-                            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-                            
-                            const buffer = await decodeAudioData(
-                                decodeBase64(audioData),
-                                ctx,
-                                24000,
-                                1
-                            );
-                            
-                            const source = ctx.createBufferSource();
-                            source.buffer = buffer;
-                            source.connect(ctx.destination);
-                            
-                            source.addEventListener('ended', () => {
-                                audioSourcesRef.current.delete(source);
-                            });
-                            
-                            source.start(nextStartTimeRef.current);
-                            nextStartTimeRef.current += buffer.duration;
-                            audioSourcesRef.current.add(source);
-                        }
-                        
-                        // Handle Interruptions
-                        if (msg.serverContent?.interrupted) {
-                             audioSourcesRef.current.forEach(src => src.stop());
-                             audioSourcesRef.current.clear();
-                             if (outputAudioContextRef.current) nextStartTimeRef.current = outputAudioContextRef.current.currentTime;
-                        }
-
-                        // Handle Tool Calls
-                        if (msg.toolCall) {
-                            for (const fc of msg.toolCall.functionCalls) {
-                                console.log('Live Tool Call:', fc.name, fc.args);
-                                let result = "";
-                                if (fc.name === 'search_djs') result = await findDjsForAi(fc.args as any);
-                                else if (fc.name === 'check_availability') result = await checkAvailabilityForAi(fc.args.djName as string, fc.args.date as string);
-                                else if (fc.name === 'create_lead') result = await createLeadForAi(fc.args);
-                                
-                                sessionPromise.then(session => {
-                                    session.sendToolResponse({
-                                        functionResponses: {
-                                            id: fc.id,
-                                            name: fc.name,
-                                            response: { result }
-                                        }
-                                    });
-                                });
-                            }
-                        }
-                    },
-                    onclose: () => {
-                        console.log("Live session closed");
-                        endLiveCall();
-                    },
-                    onerror: (e) => {
-                        console.error("Live session error", e);
-                        setLiveStatus('Connection Error');
-                        setTimeout(endLiveCall, 2000);
-                    }
-                }
-            });
-            
-            liveSessionRef.current = sessionPromise;
-
-        } catch (error: any) {
-            console.error("Failed to start live call", error);
-            setLiveStatus(error.message || "Failed to start call");
-            setTimeout(endLiveCall, 3000);
-        }
-    };
-
-    const endLiveCall = () => {
-        setIsLiveCallActive(false);
-        setLiveStatus('');
-        
-        // Cleanup Audio
-        if (scriptProcessorRef.current) {
-            scriptProcessorRef.current.disconnect();
-            scriptProcessorRef.current = null;
-        }
-        if (audioStreamRef.current) {
-            audioStreamRef.current.getTracks().forEach(t => t.stop());
-            audioStreamRef.current = null;
-        }
-        if (inputAudioContextRef.current) {
-            inputAudioContextRef.current.close();
-            inputAudioContextRef.current = null;
-        }
-        if (outputAudioContextRef.current) {
-            outputAudioContextRef.current.close();
-            outputAudioContextRef.current = null;
-        }
-        
-        // Close Session
-        if (liveSessionRef.current) {
-            liveSessionRef.current.then((session: any) => session.close());
-            liveSessionRef.current = null;
-        }
-    };
-
-
     return (
         <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end">
-            
             {/* Chat Window */}
             {isOpen && (
                 <div className="mb-4 w-[350px] md:w-[400px] h-[500px] bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-brand-cyan/20 flex flex-col overflow-hidden animate-slideUp origin-bottom-right relative">
-                    
-                    {/* LIVE CALL OVERLAY */}
-                    {isLiveCallActive && (
-                        <div className="absolute inset-0 z-20 bg-black/90 flex flex-col items-center justify-center p-6 animate-fadeIn">
-                             <div className="w-40 h-40 rounded-full border-4 border-brand-cyan/30 flex items-center justify-center relative mb-8">
-                                <div className="absolute inset-0 bg-brand-cyan/10 rounded-full animate-ping"></div>
-                                <div className="absolute inset-2 bg-brand-cyan/20 rounded-full animate-pulse"></div>
-                                <RobotIcon />
-                             </div>
-                             
-                             <h3 className="text-2xl font-bold text-white mb-2">Voice Agent Active</h3>
-                             <p className="text-brand-cyan font-mono mb-12 text-center text-sm">{liveStatus}</p>
-                             
-                             <button 
-                                onClick={endLiveCall}
-                                className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30"
-                            >
-                                <EndCallIcon />
-                            </button>
-                        </div>
-                    )}
-
                     {/* Header */}
                     <div className="bg-gradient-to-r from-brand-violet/20 to-brand-cyan/20 p-4 border-b border-white/10 flex justify-between items-center">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                            <span className="font-bold text-white tracking-wide">AI Booking Agent</span>
+                            <span className="font-bold text-white tracking-wide">DJBook Chat</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            {/* Start Call Button */}
-                            <button 
-                                onClick={startLiveCall}
-                                disabled={isLiveCallActive}
-                                className="p-2 rounded-full text-brand-cyan hover:bg-white/10 transition-colors"
-                                title="Start Voice Call"
-                            >
-                                <HeadphoneIcon />
-                            </button>
-                            
                             <button 
                                 onClick={() => setVoiceMode(!voiceMode)}
                                 className={`p-2 rounded-full transition-colors ${voiceMode ? 'bg-white/20 text-white' : 'text-gray-400 hover:text-white'}`}
@@ -654,7 +300,7 @@ const ChatBot: React.FC = () => {
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                                placeholder="Type or speak..."
+                                placeholder="Type a message..."
                                 className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder-gray-500"
                             />
                             
