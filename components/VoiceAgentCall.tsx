@@ -126,12 +126,19 @@ const VoiceAgentCall: React.FC = () => {
     const liveSessionRef = useRef<any>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
     const outputAudioContextRef = useRef<AudioContext | null>(null);
+    const outputGainNodeRef = useRef<GainNode | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    
     const audioStreamRef = useRef<MediaStream | null>(null);
     const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
     const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
     const nextStartTimeRef = useRef<number>(0);
+    
+    // Visualizer Refs
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const animationFrameRef = useRef<number>(0);
 
-    // Prompt instructions for Female Hinglish Persona
+    // Prompt instructions
     const SYSTEM_INSTRUCTION = `
     You are 'DJBook AI', a helpful and energetic FEMALE voice assistant for DJBook.in. 
     Speaking Style: Hinglish (Hindi + English mix). Friendly, polite, warm.
@@ -152,6 +159,53 @@ const VoiceAgentCall: React.FC = () => {
             console.warn("process.env.API_KEY is not accessible directly.");
             return undefined;
         }
+    };
+
+    // --- VISUALIZER DRAW LOOP ---
+    const startVisualizer = () => {
+        if (!analyserRef.current || !canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const analyser = analyserRef.current;
+        
+        if (!ctx) return;
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const draw = () => {
+            animationFrameRef.current = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const bars = 20; // Number of bars to display
+            const step = Math.floor(bufferLength / bars);
+            const width = canvas.width / bars;
+
+            for (let i = 0; i < bars; i++) {
+                const dataIndex = i * step;
+                const value = dataArray[dataIndex];
+                const percent = value / 255;
+                const height = canvas.height * percent * 0.8;
+                
+                const x = i * width;
+                const y = (canvas.height - height) / 2; // Center vertically
+
+                // Gradient
+                const gradient = ctx.createLinearGradient(0, y, 0, y + height);
+                gradient.addColorStop(0, '#00E5FF'); // Cyan
+                gradient.addColorStop(1, '#9b5cff'); // Violet
+
+                ctx.fillStyle = gradient;
+                
+                // Draw rounded bar
+                ctx.beginPath();
+                ctx.roundRect(x + 2, y, width - 4, Math.max(4, height), 4);
+                ctx.fill();
+            }
+        };
+        draw();
     };
 
     const acceptCall = async () => {
@@ -175,22 +229,40 @@ const VoiceAgentCall: React.FC = () => {
 
             // 2. API Key
             const apiKey = getApiKey();
-            if (!apiKey) throw new Error("API Key missing in environment.");
+            if (!apiKey) throw new Error("API Key missing.");
             const ai = new GoogleGenAI({ apiKey });
 
-            // 3. Audio Contexts
+            // 3. Audio Contexts Setup
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            
+            // Input
             try {
                 inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
             } catch(e) {
-                console.warn("16kHz AudioContext not supported, fallback to default.");
                 inputAudioContextRef.current = new AudioContext();
             }
+            
+            // Output & Visualizer Chain
             outputAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
+            
+            const analyser = outputAudioContextRef.current.createAnalyser();
+            analyser.fftSize = 256;
+            analyser.smoothingTimeConstant = 0.6;
+            analyserRef.current = analyser;
+            
+            const masterGain = outputAudioContextRef.current.createGain();
+            outputGainNodeRef.current = masterGain;
+            
+            // Connect: Source (added later) -> MasterGain -> Analyser -> Destination
+            masterGain.connect(analyser);
+            analyser.connect(outputAudioContextRef.current.destination);
 
-            // Resume audio contexts if suspended (browser policy)
+            // Resume audio contexts if suspended
             if (inputAudioContextRef.current?.state === 'suspended') await inputAudioContextRef.current.resume();
             if (outputAudioContextRef.current?.state === 'suspended') await outputAudioContextRef.current.resume();
+
+            // Start Visualizer Loop
+            setTimeout(startVisualizer, 100);
 
             // 4. Connect Gemini Live
             const sessionPromise = ai.live.connect({
@@ -200,7 +272,7 @@ const VoiceAgentCall: React.FC = () => {
                     tools: tools,
                     systemInstruction: SYSTEM_INSTRUCTION,
                     speechConfig: {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } // Kore is often softer/female
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
                     }
                 },
                 callbacks: {
@@ -226,13 +298,16 @@ const VoiceAgentCall: React.FC = () => {
                     onmessage: async (msg: LiveServerMessage) => {
                         // Audio Out
                         const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                        if (audioData && outputAudioContextRef.current) {
+                        if (audioData && outputAudioContextRef.current && outputGainNodeRef.current) {
                             const ctx = outputAudioContextRef.current;
                             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
                             const buffer = await decodeAudioData(decodeBase64(audioData), ctx, 24000, 1);
+                            
                             const source = ctx.createBufferSource();
                             source.buffer = buffer;
-                            source.connect(ctx.destination);
+                            // Connect to Master Gain (which goes to Analyser -> Speakers)
+                            source.connect(outputGainNodeRef.current);
+                            
                             source.addEventListener('ended', () => audioSourcesRef.current.delete(source));
                             source.start(nextStartTimeRef.current);
                             nextStartTimeRef.current += buffer.duration;
@@ -275,7 +350,6 @@ const VoiceAgentCall: React.FC = () => {
                 }
             });
             
-            // Handle initial connection failure specifically
             sessionPromise.catch(err => {
                 console.error("Connection Handshake Failed:", err);
                 setStatusText(`Connect Failed: ${err.message || 'Unknown'}`);
@@ -294,6 +368,7 @@ const VoiceAgentCall: React.FC = () => {
     const endCall = () => {
         setCallState('idle');
         setStatusText('');
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         
         // Cleanup
         if (scriptProcessorRef.current) {
@@ -323,7 +398,7 @@ const VoiceAgentCall: React.FC = () => {
         return (
             <button
                 onClick={triggerIncomingCall}
-                className="fixed bottom-24 right-20 z-40 bg-green-500 hover:bg-green-400 text-white rounded-full p-4 shadow-lg hover:shadow-neon transition-all"
+                className="fixed bottom-24 right-24 z-40 bg-green-500 hover:bg-green-400 text-white rounded-full p-4 shadow-lg hover:shadow-neon transition-all"
                 title="Talk to DJBook AI"
             >
                <PhoneIncomingIcon />
@@ -380,30 +455,33 @@ const VoiceAgentCall: React.FC = () => {
     // Active Call UI
     return (
         <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-4">
-            <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-6 w-full max-w-md">
                 <div className="relative">
-                    {/* Waveform Animation (Simulated) */}
-                    <div className="absolute inset-0 bg-brand-cyan/20 rounded-full blur-xl animate-ping"></div>
-                    <div className="w-32 h-32 rounded-full border-4 border-brand-cyan/50 flex items-center justify-center bg-black relative z-10">
+                    {/* User Mic Active Indicator (Ripple) */}
+                    <div className="absolute inset-0 bg-brand-cyan/20 rounded-full blur-xl animate-ping opacity-30"></div>
+                    
+                    <div className="w-32 h-32 rounded-full border-4 border-brand-cyan/50 flex items-center justify-center bg-black relative z-10 shadow-[0_0_50px_rgba(0,229,255,0.2)]">
                          <span className="text-4xl">👩‍💻</span>
                     </div>
                 </div>
                 
                 <div className="text-center">
                     <h2 className="text-3xl font-bold text-white mb-2">DJBook AI</h2>
-                    <p className="text-brand-cyan font-mono text-lg">{statusText || 'Listening...'}</p>
+                    <p className="text-brand-cyan font-mono text-lg tracking-wider">{statusText || 'Listening...'}</p>
                 </div>
 
-                <div className="flex gap-2 h-10 items-end justify-center w-full max-w-xs overflow-hidden">
-                     {[...Array(5)].map((_, i) => (
-                         <div key={i} className="w-2 bg-brand-violet rounded-full animate-[music-bar_1s_ease-in-out_infinite]" style={{ height: `${Math.random() * 100}%`, animationDelay: `${i * 0.1}s` }}></div>
-                     ))}
+                {/* Real-time Frequency Visualizer */}
+                <div className="w-full h-32 bg-white/5 rounded-2xl border border-white/10 p-4 flex items-center justify-center overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-brand-dark/50 z-10"></div>
+                    <canvas ref={canvasRef} width={300} height={100} className="w-full h-full z-0"></canvas>
                 </div>
+                
+                <p className="text-gray-500 text-xs mt-2">Voice & Intelligence by Google Gemini</p>
             </div>
 
             <button 
                 onClick={endCall}
-                className="mt-16 w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-2xl hover:scale-105 transition-all"
+                className="mt-12 w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-2xl hover:scale-105 transition-all"
             >
                 <PhoneOffIcon />
             </button>
