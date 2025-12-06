@@ -31,12 +31,6 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
             if (djData) {
                 setDj(djData);
                 setBookings(bookingsData);
-                
-                // Guide new DJs to complete their profile
-                if ((!djData.city || !djData.genres || djData.genres.length === 0) && activeTab !== 'profile') {
-                    setActiveTab('profile');
-                    showToast("Welcome! Please complete your profile to get started.", "success");
-                }
             } else {
                 showToast("DJ Profile data not found.", "error");
             }
@@ -44,7 +38,7 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
             console.error(e);
             showToast("Error fetching dashboard data.", "error");
         }
-    }, [djId, activeTab, showToast]); // dependencies
+    }, [djId, showToast]); 
 
     useEffect(() => {
         const init = async () => {
@@ -53,7 +47,15 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
             setLoading(false);
         }
         init();
-    }, [djId]); // Run once on mount for djId change
+    }, [fetchData]);
+
+    // Handle new user onboarding redirection
+    useEffect(() => {
+        if (dj && (!dj.city || !dj.genres || dj.genres.length === 0) && activeTab !== 'profile') {
+            setActiveTab('profile');
+            showToast("Welcome! Please complete your profile to get started.", "success");
+        }
+    }, [dj]);
 
     // Handler for updates from sub-components to avoid full refetching
     const handleBookingUpdate = (updatedBooking: Booking) => {

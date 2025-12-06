@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { User, Role, SubscriptionTier, View } from './types';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -38,10 +38,10 @@ function App() {
   const [authModalConfig, setAuthModalConfig] = useState<AuthModalConfig>({ isOpen: false });
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   const handleLogin = async (email: string, password_param: string): Promise<User> => {
     try {

@@ -45,13 +45,18 @@ function createBlob(data: Float32Array): { data: string, mimeType: string } {
 }
 
 function decodeBase64(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+    try {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    } catch (e) {
+        console.error("Failed to decode base64 audio", e);
+        return new Uint8Array(0);
     }
-    return bytes;
 }
 
 async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
@@ -175,34 +180,41 @@ const VoiceAgentCall: React.FC = () => {
 
         const draw = () => {
             animationFrameRef.current = requestAnimationFrame(draw);
-            analyser.getByteFrequencyData(dataArray);
+            // Safe check inside the loop
+            if (!analyser || !ctx) return;
+            
+            try {
+                analyser.getByteFrequencyData(dataArray);
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const bars = 20; // Number of bars to display
-            const step = Math.floor(bufferLength / bars);
-            const width = canvas.width / bars;
+                const bars = 20; // Number of bars to display
+                const step = Math.floor(bufferLength / bars);
+                const width = canvas.width / bars;
 
-            for (let i = 0; i < bars; i++) {
-                const dataIndex = i * step;
-                const value = dataArray[dataIndex];
-                const percent = value / 255;
-                const height = canvas.height * percent * 0.8;
-                
-                const x = i * width;
-                const y = (canvas.height - height) / 2; // Center vertically
+                for (let i = 0; i < bars; i++) {
+                    const dataIndex = i * step;
+                    const value = dataArray[dataIndex];
+                    const percent = value / 255;
+                    const height = canvas.height * percent * 0.8;
+                    
+                    const x = i * width;
+                    const y = (canvas.height - height) / 2; // Center vertically
 
-                // Gradient
-                const gradient = ctx.createLinearGradient(0, y, 0, y + height);
-                gradient.addColorStop(0, '#00E5FF'); // Cyan
-                gradient.addColorStop(1, '#9b5cff'); // Violet
+                    // Gradient
+                    const gradient = ctx.createLinearGradient(0, y, 0, y + height);
+                    gradient.addColorStop(0, '#00E5FF'); // Cyan
+                    gradient.addColorStop(1, '#9b5cff'); // Violet
 
-                ctx.fillStyle = gradient;
-                
-                // Draw rounded bar
-                ctx.beginPath();
-                ctx.roundRect(x + 2, y, width - 4, Math.max(4, height), 4);
-                ctx.fill();
+                    ctx.fillStyle = gradient;
+                    
+                    // Draw rounded bar
+                    ctx.beginPath();
+                    ctx.roundRect(x + 2, y, width - 4, Math.max(4, height), 4);
+                    ctx.fill();
+                }
+            } catch (e) {
+                // Silently fail frame
             }
         };
         draw();
@@ -239,11 +251,16 @@ const VoiceAgentCall: React.FC = () => {
             try {
                 inputAudioContextRef.current = new AudioContext({ sampleRate: 16000 });
             } catch(e) {
+                console.warn("Falling back to default sample rate input context");
                 inputAudioContextRef.current = new AudioContext();
             }
             
             // Output & Visualizer Chain
-            outputAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
+            try {
+                outputAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
+            } catch (e) {
+                 outputAudioContextRef.current = new AudioContext();
+            }
             
             const analyser = outputAudioContextRef.current.createAnalyser();
             analyser.fftSize = 256;
@@ -280,65 +297,83 @@ const VoiceAgentCall: React.FC = () => {
                         setStatusText('Live');
                         if (!inputAudioContextRef.current || !audioStreamRef.current) return;
                         
-                        const source = inputAudioContextRef.current.createMediaStreamSource(audioStreamRef.current);
-                        const processor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
-                        scriptProcessorRef.current = processor;
+                        try {
+                            const source = inputAudioContextRef.current.createMediaStreamSource(audioStreamRef.current);
+                            const processor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
+                            scriptProcessorRef.current = processor;
 
-                        processor.onaudioprocess = (e) => {
-                            const inputData = e.inputBuffer.getChannelData(0);
-                            const currentRate = inputAudioContextRef.current?.sampleRate || 16000;
-                            const downsampled = downsampleTo16k(inputData, currentRate);
-                            const blob = createBlob(downsampled);
-                            sessionPromise.then(session => session.sendRealtimeInput({ media: blob }));
-                        };
+                            processor.onaudioprocess = (e) => {
+                                try {
+                                    if (!inputAudioContextRef.current) return;
+                                    const inputData = e.inputBuffer.getChannelData(0);
+                                    const currentRate = inputAudioContextRef.current.sampleRate || 16000;
+                                    const downsampled = downsampleTo16k(inputData, currentRate);
+                                    const blob = createBlob(downsampled);
+                                    sessionPromise.then(session => session.sendRealtimeInput({ media: blob }));
+                                } catch (err) {
+                                    console.error("Audio Process Error", err);
+                                }
+                            };
 
-                        source.connect(processor);
-                        processor.connect(inputAudioContextRef.current.destination);
+                            source.connect(processor);
+                            processor.connect(inputAudioContextRef.current.destination);
+                        } catch (e) {
+                            console.error("Audio Pipeline Setup Error", e);
+                            setStatusText("Audio Error");
+                        }
                     },
                     onmessage: async (msg: LiveServerMessage) => {
-                        // Audio Out
-                        const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                        if (audioData && outputAudioContextRef.current && outputGainNodeRef.current) {
-                            const ctx = outputAudioContextRef.current;
-                            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-                            const buffer = await decodeAudioData(decodeBase64(audioData), ctx, 24000, 1);
-                            
-                            const source = ctx.createBufferSource();
-                            source.buffer = buffer;
-                            // Connect to Master Gain (which goes to Analyser -> Speakers)
-                            source.connect(outputGainNodeRef.current);
-                            
-                            source.addEventListener('ended', () => audioSourcesRef.current.delete(source));
-                            source.start(nextStartTimeRef.current);
-                            nextStartTimeRef.current += buffer.duration;
-                            audioSourcesRef.current.add(source);
-                        }
-
-                        // Interruption
-                        if (msg.serverContent?.interrupted) {
-                            audioSourcesRef.current.forEach(src => src.stop());
-                            audioSourcesRef.current.clear();
-                            if(outputAudioContextRef.current) nextStartTimeRef.current = outputAudioContextRef.current.currentTime;
-                        }
-
-                        // Function Calling
-                        if (msg.toolCall) {
-                            for (const fc of msg.toolCall.functionCalls) {
-                                let result = "";
-                                if (fc.name === 'search_djs') result = await findDjsForAi(fc.args as any);
-                                else if (fc.name === 'check_availability') result = await checkAvailabilityForAi(fc.args.djName as string, fc.args.date as string);
-                                else if (fc.name === 'create_lead') result = await createLeadForAi(fc.args);
-                                
-                                sessionPromise.then(session => {
-                                    session.sendToolResponse({
-                                        functionResponses: {
-                                            id: fc.id,
-                                            name: fc.name,
-                                            response: { result }
-                                        }
-                                    });
-                                });
+                        try {
+                            // Audio Out
+                            const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+                            if (audioData && outputAudioContextRef.current && outputGainNodeRef.current) {
+                                const ctx = outputAudioContextRef.current;
+                                nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
+                                const decodedBytes = decodeBase64(audioData);
+                                if (decodedBytes.length > 0) {
+                                    const buffer = await decodeAudioData(decodedBytes, ctx, 24000, 1);
+                                    const source = ctx.createBufferSource();
+                                    source.buffer = buffer;
+                                    // Connect to Master Gain (which goes to Analyser -> Speakers)
+                                    source.connect(outputGainNodeRef.current);
+                                    
+                                    source.addEventListener('ended', () => audioSourcesRef.current.delete(source));
+                                    source.start(nextStartTimeRef.current);
+                                    nextStartTimeRef.current += buffer.duration;
+                                    audioSourcesRef.current.add(source);
+                                }
                             }
+
+                            // Interruption
+                            if (msg.serverContent?.interrupted) {
+                                audioSourcesRef.current.forEach(src => {
+                                    try { src.stop(); } catch(e){}
+                                });
+                                audioSourcesRef.current.clear();
+                                if(outputAudioContextRef.current) nextStartTimeRef.current = outputAudioContextRef.current.currentTime;
+                            }
+
+                            // Function Calling
+                            if (msg.toolCall) {
+                                for (const fc of msg.toolCall.functionCalls) {
+                                    let result = "";
+                                    if (fc.name === 'search_djs') result = await findDjsForAi(fc.args as any);
+                                    else if (fc.name === 'check_availability') result = await checkAvailabilityForAi(fc.args.djName as string, fc.args.date as string);
+                                    else if (fc.name === 'create_lead') result = await createLeadForAi(fc.args);
+                                    
+                                    sessionPromise.then(session => {
+                                        session.sendToolResponse({
+                                            functionResponses: {
+                                                id: fc.id,
+                                                name: fc.name,
+                                                response: { result }
+                                            }
+                                        });
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Msg Error", err);
                         }
                     },
                     onclose: () => endCall(),
@@ -372,7 +407,7 @@ const VoiceAgentCall: React.FC = () => {
         
         // Cleanup
         if (scriptProcessorRef.current) {
-            scriptProcessorRef.current.disconnect();
+            try { scriptProcessorRef.current.disconnect(); } catch(e){}
             scriptProcessorRef.current = null;
         }
         if (audioStreamRef.current) {
@@ -380,15 +415,15 @@ const VoiceAgentCall: React.FC = () => {
             audioStreamRef.current = null;
         }
         if (inputAudioContextRef.current) {
-            inputAudioContextRef.current.close();
+            inputAudioContextRef.current.close().catch(console.error);
             inputAudioContextRef.current = null;
         }
         if (outputAudioContextRef.current) {
-            outputAudioContextRef.current.close();
+            outputAudioContextRef.current.close().catch(console.error);
             outputAudioContextRef.current = null;
         }
         if (liveSessionRef.current) {
-            liveSessionRef.current.then((s: any) => s.close());
+            liveSessionRef.current.then((s: any) => s.close()).catch(console.error);
             liveSessionRef.current = null;
         }
     };

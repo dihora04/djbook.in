@@ -164,20 +164,23 @@ const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ setView, showTo
 
     // --- OPTIMISTIC UI UPDATE FOR INSTANT FEEL ---
     const handleApproval = async (djId: string, status: 'APPROVED' | 'REJECTED') => {
-        // 1. Optimistic Update: Immediately update local state
-        const previousDjs = [...allDjs];
+        // 1. Capture original state for this specific item for rollback
+        const originalDj = allDjs.find(d => d.id === djId);
+        if (!originalDj) return;
+
+        // 2. Optimistic Update: Immediately update local state
         setAllDjs(current => current.map(d => d.id === djId ? { ...d, approvalStatus: status } : d));
         
         showToast(status === 'APPROVED' ? 'DJ Approved instantly.' : 'DJ Rejected.', 'success');
 
-        // 2. Perform API call in background
+        // 3. Perform API call in background
         try {
             const action = status === 'APPROVED' ? approveDj : rejectDj;
             await action(djId);
             // No need to re-fetch if API succeeds, local state is already correct
         } catch (error) {
-            // 3. Rollback on failure
-            setAllDjs(previousDjs);
+            // 4. Rollback on failure: Revert only the specific item using functional update
+            setAllDjs(current => current.map(d => d.id === djId ? originalDj : d));
             showToast("Sync failed. Reverting changes.", "error");
         }
     };
