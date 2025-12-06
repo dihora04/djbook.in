@@ -38,6 +38,7 @@ function App() {
   const [authModalConfig, setAuthModalConfig] = useState<AuthModalConfig>({ isOpen: false });
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
+  // Memoize showToast to avoid infinite re-render loops in consumers
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
