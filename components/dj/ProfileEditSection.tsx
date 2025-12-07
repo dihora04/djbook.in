@@ -12,6 +12,39 @@ interface ProfileEditSectionProps {
     showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
+// Helper components moved outside to maintain stable references
+const InputField = ({ label, name, value, onChange, placeholder, type = "text" }: any) => (
+    <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">{label}</label>
+        <input 
+            type={type} 
+            name={name} 
+            value={value || ''} 
+            onChange={onChange} 
+            placeholder={placeholder}
+            className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none"
+        />
+    </div>
+);
+
+const MultiSelectGrid = ({ title, options, selected, onChange }: {title: string, options: string[], selected: string[], onChange: (value: string) => void}) => (
+    <div>
+        <h4 className="text-lg font-semibold text-white mb-2">{title}</h4>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {options.map(option => (
+                <button 
+                    key={option} 
+                    type="button"
+                    onClick={() => onChange(option)}
+                    className={`text-sm text-center p-2 rounded-full border-2 transition-colors ${selected.includes(option) ? 'bg-brand-cyan/20 border-brand-cyan text-white' : 'border-gray-600 text-gray-300 hover:border-brand-cyan/50'}`}
+                >
+                    {option}
+                </button>
+            ))}
+        </div>
+    </div>
+);
+
 const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, showToast }) => {
     const [formData, setFormData] = useState<Partial<DJProfile>>(dj);
     const [isSaving, setIsSaving] = useState(false);
@@ -21,7 +54,14 @@ const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, show
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'minFee' ? parseInt(value) : value }));
+        // Handle number parsing safely
+        let parsedValue: any = value;
+        if (name === 'minFee') {
+             parsedValue = value === '' ? 0 : parseInt(value);
+             if (isNaN(parsedValue)) parsedValue = 0;
+        }
+
+        setFormData(prev => ({ ...prev, [name]: parsedValue }));
     };
     
     const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -73,38 +113,6 @@ const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, show
             setIsSaving(false);
         }
     };
-
-    const InputField = ({ label, name, value, onChange, placeholder, type = "text" }: any) => (
-        <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">{label}</label>
-            <input 
-                type={type} 
-                name={name} 
-                value={value || ''} 
-                onChange={onChange} 
-                placeholder={placeholder}
-                className="w-full bg-brand-dark text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-cyan focus:outline-none"
-            />
-        </div>
-    );
-
-     const MultiSelectGrid = ({ title, options, selected, onChange }: {title: string, options: string[], selected: string[], onChange: (value: string) => void}) => (
-        <div>
-            <h4 className="text-lg font-semibold text-white mb-2">{title}</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {options.map(option => (
-                    <button 
-                        key={option} 
-                        type="button"
-                        onClick={() => onChange(option)}
-                        className={`text-sm text-center p-2 rounded-full border-2 transition-colors ${selected.includes(option) ? 'bg-brand-cyan/20 border-brand-cyan text-white' : 'border-gray-600 text-gray-300 hover:border-brand-cyan/50'}`}
-                    >
-                        {option}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
 
     return (
         <div>
