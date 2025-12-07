@@ -131,7 +131,13 @@ function App() {
           {/* Dashboard Routes */}
           {view.page === 'dj-dashboard' && (
               currentUser?.role === Role.DJ && currentUser.djProfileId ? 
-              <DjDashboardPage key={currentUser.id} djId={currentUser.djProfileId} setView={setView} showToast={showToast} /> : 
+              <DjDashboardPage 
+                key={currentUser.id} 
+                djId={currentUser.djProfileId} 
+                setView={setView} 
+                showToast={showToast} 
+                onLogout={handleLogout}
+              /> : 
               <HomePage setView={setView} /> 
           )}
           {view.page === 'user-dashboard' && (

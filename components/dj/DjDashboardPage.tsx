@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, DJProfile, Booking, BookingStatus, SubscriptionTier } from '../../types';
-import { getDjById, getBookingsByDjId, acceptBooking, rejectBooking, upgradeSubscription } from '../../services/mockApiService';
+import { getDjById, getBookingsByDjId, acceptBooking, rejectBooking, upgradeSubscription, deleteDjAccount } from '../../services/mockApiService';
 import { LoaderIcon, UserIcon, CalendarIcon, LeadsIcon, AnalyticsIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../icons';
 import ProfileEditSection from './ProfileEditSection';
 import CalendarSection from './CalendarSection';
@@ -11,11 +11,12 @@ interface DjDashboardPageProps {
   djId: string;
   setView: (view: View) => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
+  onLogout: () => void;
 }
 
 type Tab = 'profile' | 'calendar' | 'leads' | 'analytics' | 'subscription';
 
-const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showToast }) => {
+const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showToast, onLogout }) => {
     const [dj, setDj] = useState<DJProfile | null>(null);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
@@ -60,6 +61,19 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
     // Handler for updates from sub-components to avoid full refetching
     const handleBookingUpdate = (updatedBooking: Booking) => {
         setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+    };
+
+    const handleDeleteProfile = async () => {
+        if (!window.confirm("Are you sure you want to permanently delete your DJ profile? This action cannot be undone.")) {
+            return;
+        }
+        try {
+            await deleteDjAccount(djId);
+            showToast("Profile deleted successfully. Goodbye!", "success");
+            onLogout();
+        } catch (e) {
+            showToast("Failed to delete profile.", "error");
+        }
     };
 
     const TabButton = ({ tab, icon, label }: { tab: Tab, icon: React.ReactNode, label: string }) => (
@@ -122,7 +136,14 @@ const DjDashboardPage: React.FC<DjDashboardPageProps> = ({ djId, setView, showTo
                         )}
                         {activeTab === 'calendar' && <CalendarSection djId={djId} />}
                         {activeTab === 'analytics' && <AnalyticsSection />}
-                        {activeTab === 'profile' && <ProfileEditSection dj={dj} setDj={setDj} showToast={showToast} />}
+                        {activeTab === 'profile' && (
+                            <ProfileEditSection 
+                                dj={dj} 
+                                setDj={setDj} 
+                                showToast={showToast} 
+                                onDelete={handleDeleteProfile} 
+                            />
+                        )}
                         {activeTab === 'subscription' && <SubscriptionSection dj={dj} onPlanChange={setDj} showToast={showToast} />}
                     </main>
                 </div>

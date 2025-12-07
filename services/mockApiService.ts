@@ -174,6 +174,32 @@ export const registerUser = async (name: string, email: string, password_param: 
     });
 };
 
+export const deleteDjAccount = async (djId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const djIndex = db.djsStore.findIndex((d: DJProfile) => d.id === djId);
+            if (djIndex === -1) return reject(new Error("DJ Profile not found"));
+
+            const userId = db.djsStore[djIndex].userId;
+
+            // Remove DJ Profile
+            db.djsStore.splice(djIndex, 1);
+
+            // Remove User Account
+            const userIndex = db.usersStore.findIndex((u: User) => u.id === userId);
+            if (userIndex !== -1) {
+                db.usersStore.splice(userIndex, 1);
+            }
+
+            // Optional: Remove associated bookings?
+            // db.bookingsStore = db.bookingsStore.filter(b => b.djId !== djId);
+
+            console.log(`Deleted DJ ${djId} and User ${userId}`);
+            resolve();
+        }, ARTIFICIAL_DELAY);
+    });
+};
+
 export const getDjs = async (): Promise<DJProfile[]> => {
   return new Promise(resolve => {
     setTimeout(() => {

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { DJProfile } from '../../types';
-import { LoaderIcon, MapPinIcon } from '../icons';
+import { LoaderIcon, MapPinIcon, XCircleIcon } from '../icons';
 import { INDIAN_LOCATIONS, GENRES, EVENT_TYPES } from '../../constants';
 import { updateDjProfile } from '../../services/mockApiService';
 
@@ -10,6 +10,7 @@ interface ProfileEditSectionProps {
     dj: DJProfile;
     setDj: React.Dispatch<React.SetStateAction<DJProfile | null>>;
     showToast: (message: string, type?: 'success' | 'error') => void;
+    onDelete?: () => void;
 }
 
 // Helper components moved outside to maintain stable references
@@ -45,7 +46,7 @@ const MultiSelectGrid = ({ title, options, selected, onChange }: {title: string,
     </div>
 );
 
-const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, showToast }) => {
+const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, showToast, onDelete }) => {
     const [formData, setFormData] = useState<Partial<DJProfile>>(dj);
     const [isSaving, setIsSaving] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
@@ -178,6 +179,20 @@ const ProfileEditSection: React.FC<ProfileEditSectionProps> = ({ dj, setDj, show
                     <InputField label="Instagram URL" name="instagram" value={formData.instagram} onChange={handleChange} placeholder="https://instagram.com/yourprofile" />
                     <InputField label="YouTube URL" name="youtube" value={formData.youtube} onChange={handleChange} placeholder="https://youtube.com/yourchannel" />
                     <InputField label="SoundCloud URL" name="soundcloud" value={formData.soundcloud} onChange={handleChange} placeholder="https://soundcloud.com/yourprofile" />
+                 </div>
+
+                 {/* Danger Zone */}
+                 <div className="bg-red-900/10 border border-red-500/30 p-6 rounded-lg mt-8">
+                    <h3 className="text-red-500 font-bold text-lg mb-2 flex items-center gap-2">
+                        <XCircleIcon className="w-6 h-6" /> Danger Zone
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-4">Deleting your profile is permanent. All your data, bookings, and reviews will be wiped.</p>
+                    <button 
+                        onClick={onDelete}
+                        className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-colors"
+                    >
+                        Delete My Profile Permanently
+                    </button>
                  </div>
             </div>
         </div>
